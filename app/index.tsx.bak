@@ -1,0 +1,56 @@
+import { useRouter } from 'expo-router';
+import { Pressable, Text, View, StyleSheet } from 'react-native';
+
+import { GlobalStyles, Palette } from '@/constants/Styles';
+import { parseLogBoxLog } from 'react-native/types_generated/Libraries/LogBox/Data/parseLogBoxLog';
+import { Color } from 'react-native/types_generated/Libraries/Animated/AnimatedExports';
+import { Background } from '@react-navigation/elements';
+
+export default function WelcomeScreen() {
+  const router = useRouter();
+
+  return (
+    <View style={[GlobalStyles.screenContainer, { justifyContent: 'center', alignItems: 'center' }]}> 
+      <View style={[GlobalStyles.cardElevated, { width: '100%', maxWidth: 420 }]}> 
+        
+<Text style={[GlobalStyles.headingMedium, { marginBottom: 5 }]}> 
+          Your next step starts here.
+        </Text>
+        <Text style={[GlobalStyles.brandTitle, { marginBottom: 10, textAlign: 'center', fontSize: 42, color: Palette.skyBlue }]}> 
+          Azuka
+        </Text>
+        <Text style={[GlobalStyles.bodyText, {  color: Palette.textSecondary, marginBottom: 17.5, textAlign: 'center' }]}>
+          Sync your cycle. Master your day.
+        </Text>
+
+        <Pressable style={[GlobalStyles.btnPrimary, {backgroundColor: Palette.marigold}]} onPress={() => router.push('/signup')}>
+          <Text style={GlobalStyles.btnPrimaryText}>
+            Get Started
+          </Text>
+        </Pressable>
+
+        {/* Footer Link */}
+        <View style={{ marginTop:2 }}>
+          <Text style={[GlobalStyles.bodyText, { textAlign: 'center' , color: Palette.textSecondary}]}>
+            Already have an account?{' '}
+            <Text 
+              style={styles.loginLink} 
+              onPress={() => router.push('/login')}
+            >
+              Log in
+            </Text>
+          </Text>
+        </View>
+
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  loginLink: {
+    color: Palette.oceanBlue, // Or Palette.skyBlue / Palette.crimson depending on preference
+    fontWeight: '700',
+    textDecorationLine: 'underline', // Optional: adds a nice clickable visual cue
+  },
+});

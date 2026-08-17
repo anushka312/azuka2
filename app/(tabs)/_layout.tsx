@@ -1,35 +1,45 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import React from 'react';
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Palette } from '@/constants/Styles';
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
+export default function TabsLayout() {
   return (
     <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+      screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
-        }}
-      />
+        tabBarActiveTintColor: Palette.skyBlue,
+        tabBarInactiveTintColor: Palette.textSecondary,
+        tabBarStyle: {
+          backgroundColor: Palette.surfaceWhite,
+          borderTopColor: Palette.borderMuted,
+          height:96,
+          paddingTop: 2,
+          paddingBottom: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+        },
+        tabBarIcon: ({ color, size }) => {
+          const iconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
+            home: 'home-outline',
+            cycle: 'calendar-outline',
+            workout: 'barbell-outline',
+            fuel: 'nutrition-outline',
+            insights: 'analytics-outline',
+          };
+
+          const iconName = iconMap[route.name] || 'ellipse-outline';
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+      })}
+    >
+      <Tabs.Screen name="home" options={{ title: 'Home' }} />
+      <Tabs.Screen name="cycle" options={{ title: 'Cycle' }} />
+      <Tabs.Screen name="workout" options={{ title: 'Workout' }} />
+      <Tabs.Screen name="fuel" options={{ title: 'Fuel' }} />
+      <Tabs.Screen name="insights" options={{ title: 'Insights' }} />
     </Tabs>
   );
 }
