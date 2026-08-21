@@ -20,6 +20,19 @@ export type LoggedSymptom = {
   detail?: string;
 };
 
+export type FlowRate = 'Light' | 'Medium' | 'Heavy' | 'Spotting';
+
+export type LoggedPeriod = {
+  isPeriodDay: boolean;
+  flowRate?: FlowRate;
+};
+
+// Update your main payload or props type:
+export type LoggedCheckIn = {
+  symptoms: LoggedSymptom[];
+  period?: LoggedPeriod;
+};
+
 export type DayInfo = {
   phase: string;
   energy: string;

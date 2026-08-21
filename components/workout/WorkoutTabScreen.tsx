@@ -1,109 +1,141 @@
-import React, { useState } from 'react';
-import {
-  ScrollView,
-  Text,
-  View,
-  Pressable,
-} from 'react-native';
+import { useState } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { GlobalStyles, Palette } from '@/constants/Styles';
-import { styles } from './workoutStyles';
 
-import TodayWorkout from './TodayWorkout';
-import Next7DaysWorkout from './Next7DaysWorkout';
-import WorkoutHistory from './WorkoutHistory';
+import TodayWorkout from '@/components/workout/TodayWorkout';
+import Next7DaysWorkout from '@/components/workout/Next7DaysWorkout';
+import WorkoutHistory from '@/components/workout/WorkoutHistory';
 
-type Tab = 'today' | 'next7' | 'history';
+import { styles } from '@/components/workout/workoutStyles';
+
+type WorkoutTab = 'today' | 'next7' | 'history';
 
 export default function WorkoutTabScreen() {
-  const [activeTab, setActiveTab] = useState<Tab>('today');
+  const [activeTab, setActiveTab] = useState<WorkoutTab>('today');
 
   return (
     <ScrollView
-      style={GlobalStyles.screenContainer}
-      contentContainerStyle={styles.container}
       showsVerticalScrollIndicator={false}
+      contentContainerStyle={styles.container}
     >
-      {/* Header */}
+      {/* ================= HEADER ================= */}
+
       <View style={styles.header}>
-        <Text style={GlobalStyles.headingLarge}>Workout</Text>
+        <Text style={GlobalStyles.headingLarge}>
+          Adaptive Studio
+        </Text>
+
         <Text style={styles.subtitle}>
-          Phase-adapted training
+          Your workout adapts to your energy, recovery and cycle.
         </Text>
       </View>
 
-      {/* Tabs */}
+      {/* ================= TABS ================= */}
+
       <View style={styles.tabs}>
-        <TabButton
-          label="Today"
-          icon="today-outline"
-          active={activeTab === 'today'}
+
+        {/* TODAY */}
+        <Pressable
+          style={[
+            styles.tabButton,
+            activeTab === 'today' && styles.tabButtonActive,
+          ]}
           onPress={() => setActiveTab('today')}
-        />
+        >
+          <Ionicons
+            name="today-outline"
+            size={16}
+            color={
+              activeTab === 'today'
+                ? Palette.oceanBlue
+                : Palette.textSecondary
+            }
+          />
 
-        <TabButton
-          label="Next 7 Days"
-          icon="calendar-outline"
-          active={activeTab === 'next7'}
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'today' && styles.tabTextActive,
+            ]}
+          >
+            Today
+          </Text>
+        </Pressable>
+
+        {/* NEXT 7 DAYS */}
+        <Pressable
+          style={[
+            styles.tabButton,
+            activeTab === 'next7' && styles.tabButtonActive,
+          ]}
           onPress={() => setActiveTab('next7')}
-        />
+        >
+          <Ionicons
+            name="calendar-outline"
+            size={16}
+            color={
+              activeTab === 'next7'
+                ? Palette.oceanBlue
+                : Palette.textSecondary
+            }
+          />
 
-        <TabButton
-          label="History"
-          icon="time-outline"
-          active={activeTab === 'history'}
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'next7' && styles.tabTextActive,
+            ]}
+          >
+            Next 7 Days
+          </Text>
+        </Pressable>
+
+        {/* HISTORY */}
+        <Pressable
+          style={[
+            styles.tabButton,
+            activeTab === 'history' && styles.tabButtonActive,
+          ]}
           onPress={() => setActiveTab('history')}
-        />
+        >
+          <Ionicons
+            name="time-outline"
+            size={16}
+            color={
+              activeTab === 'history'
+                ? Palette.oceanBlue
+                : Palette.textSecondary
+            }
+          />
+
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'history' && styles.tabTextActive,
+            ]}
+          >
+            History
+          </Text>
+        </Pressable>
+
       </View>
 
-      {/* Content */}
-      {activeTab === 'today' && <TodayWorkout />}
-      {activeTab === 'next7' && <Next7DaysWorkout />}
-      {activeTab === 'history' && <WorkoutHistory />}
+      {/* ================= TAB CONTENT ================= */}
+
+      {activeTab === 'today' && (
+        <TodayWorkout />
+      )}
+
+      {activeTab === 'next7' && (
+        <Next7DaysWorkout />
+      )}
+
+      {activeTab === 'history' && (
+        <WorkoutHistory />
+      )}
+
     </ScrollView>
-  );
-}
-
-type TabButtonProps = {
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  active: boolean;
-  onPress: () => void;
-};
-
-function TabButton({
-  label,
-  icon,
-  active,
-  onPress,
-}: TabButtonProps) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[
-        styles.tabButton,
-        active && styles.tabButtonActive,
-      ]}
-    >
-      <Ionicons
-        name={icon}
-        size={15}
-        color={
-          active
-            ? Palette.oceanBlue
-            : Palette.textSecondary
-        }
-      />
-
-      <Text
-        style={[
-          styles.tabText,
-          active && styles.tabTextActive,
-        ]}
-      >
-        {label}
-      </Text>
-    </Pressable>
   );
 }

@@ -770,4 +770,169 @@ export const styles = StyleSheet.create({
     fontWeight: '800',
     color: Palette.surfaceWhite,
   },
+  /* =========================
+     DAY DETAILS BOTTOM SHEET
+  ========================== */
+
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(30, 25, 15, 0.40)',
+  },
+
+  backdropPress: {
+    flex: 1,
+  },
+
+  bottomSheet: {
+    backgroundColor: Palette.creamLight,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    maxHeight: '85%',
+    width: '100%',
+  },
+
+  infoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
+  },
+
+  infoCardIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Palette.surfaceWhite,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+
+  infoLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Palette.textSubtle,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  infoValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+
+  sheetSectionTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Palette.textPrimary,
+    marginBottom: 12,
+    marginTop: 8,
+  },
+
+  sheetGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 20,
+  },
+
+  bottomSheetTile: {
+    width: '48%',
+    backgroundColor: Palette.surfaceWhite,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
+  },
+
+  bottomSheetLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Palette.textSubtle,
+    marginBottom: 4,
+  },
+
+  bottomSheetValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: Palette.textPrimary,
+  },
+
+  symptomRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 20,
+  },
+
+  symptomChip: {
+    backgroundColor: Palette.surfaceWhite,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
+  },
+
+  symptomText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Palette.textSecondary,
+  },
+
+  noDataText: {
+    fontSize: 12,
+    color: Palette.textSubtle,
+    fontStyle: 'italic',
+    marginBottom: 20,
+  },
+
+  recoverySummary: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: Palette.surfaceWhite,
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
+    marginBottom: 10,
+  },
+
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+
+  emptyIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: Palette.cream,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: Palette.textPrimary,
+    marginBottom: 6,
+  },
+
+  emptyText: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: Palette.textSecondary,
+    textAlign: 'center',
+  },
 });

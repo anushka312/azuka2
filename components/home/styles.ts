@@ -1,398 +1,328 @@
-// components/home/styles.ts
-
 import { StyleSheet, Dimensions } from 'react-native';
 import { Palette } from '../../constants/Styles';
 
 const { width } = Dimensions.get('window');
 
-const SIDEBAR_WIDTH = width * 0.75;
-
 export const styles = StyleSheet.create({
-  // paste your existing localStyles here
-  
+  // ==========================================
+  // SCREEN & HEADER
+  // ==========================================
+  screenContainer: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    marginBottom: 16,
+    marginBottom: 20,
+    marginTop: 10,
   },
   greetingSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+  },
+  iconBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: Palette.surfaceWhite,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
+  },
+  greetingTextContainer: {
+    marginLeft: 12,
+  },
+  greetingSmall: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Palette.textSubtle,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  userName: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: Palette.textPrimary,
   },
   actionsSection: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
-  iconBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: Palette.surfaceWhite,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Palette.borderSubtle,
-  },
-  profileBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: Palette.surfaceBlueMuted,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Palette.borderActiveBlue,
-  },
-  greetingTextContainer: {
-    justifyContent: 'center',
-  },
-  userName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Palette.textPrimary,
-  },
   notificationBadge: {
     position: 'absolute',
     top: 10,
     right: 10,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
     backgroundColor: Palette.crimson,
   },
-  contentContainer: {
-    flex: 1,
-    paddingTop: 8,
-  },
-  cycleCardContainer: {
-    backgroundColor: Palette.surfaceElevated,
-    borderRadius: 24,
-    padding: 20,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Palette.borderSubtle,
-  },
-  cardHeader: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  phaseTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  moonBadge: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  phaseTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Palette.textPrimary,
-  },
-  wheelContainer: {
-    width: 160,
-    height: 160,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginVertical: 12,
-  },
-  wheelTextContainer: {
-    position: 'absolute',
-    alignItems: 'center',
-  },
-  percentageText: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: Palette.textPrimary,
-  },
-  statusText: {
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 16,
-  },
-  pillTag: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  pillTagText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  sidebarContainer: {
-    width: SIDEBAR_WIDTH,
-    height: '100%',
-    backgroundColor: Palette.creamLight,
-    padding: 24,
-    justifyContent: 'space-between',
-  },
-  sidebarHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 30,
-  },
-  menuItems: {
-    gap: 8,
-    flex: 1,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-  },
-  menuText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Palette.textPrimary,
-  },
-  logoutBtn: {
-    marginTop: 'auto',
-    marginBottom: 20,
-  },
-  reframeHeader: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-    paddingRight: 20,
-  },
-  reframeText: {
-    fontSize: 14,
-    color: Palette.textPrimary,
-    lineHeight: 22,
-    flexShrink: 1,
-  },
-  primaryPathBtn: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 16,
-  },
-  pathLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: 'rgba(255,255,255,0.7)',
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  pathTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Palette.surfaceWhite,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: Palette.borderSubtle,
-  },
-  toggleTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Palette.textPrimary,
-    marginBottom: 2,
-  },
+
+  // ==========================================
+  // SECTION HEADERS
+  // ==========================================
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    marginBottom: 16,
-    marginTop: 8,
+    marginTop: 10,
+    marginBottom: 14,
   },
-  recipeScroll: {
-    marginHorizontal: -16,
-    paddingHorizontal: 16,
-    marginBottom: 24,
-  },
-  recipeCard: {
-    backgroundColor: Palette.surfaceWhite,
-    borderRadius: 20,
-    padding: 16,
-    width: 240,
-    marginRight: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  recipeIconBg: {
-    backgroundColor: Palette.surfaceGreenMuted,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  recipeTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Palette.textPrimary,
-    marginBottom: 12,
-    lineHeight: 22,
-  },
-  recipeTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 12,
-  },
-  mindsetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  expandIcon: {
-    backgroundColor: Palette.surfaceCrimsonMuted,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  mindsetContent: {
-    marginTop: 20,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: Palette.borderSubtle,
-  },
-  mindsetItem: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  verticalLine: {
-    width: 3,
-    backgroundColor: Palette.borderStrong,
-    borderRadius: 2,
-  },
-  mindsetItemTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Palette.textPrimary,
-    marginBottom: 4,
-  },
-  trendHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  mockChartArea: {
-    height: 80,
-    backgroundColor: Palette.surfaceSubtle,
-    borderRadius: 12,
-    marginBottom: 16,
-    overflow: 'hidden',
-  },
-  chartLegend: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  recipeModalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  recipeModalContainer: {
-    backgroundColor: Palette.creamLight,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    padding: 24,
-    height: '85%',
-  },
-  recipeModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  closeBtnModal: {
-    width: 40,
-    height: 40,
-    backgroundColor: Palette.surfaceWhite,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Palette.borderSubtle,
-  },
-  macroRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 24,
-  },
-  macroBox: {
-    backgroundColor: Palette.surfaceMuted,
-    borderRadius: 16,
-    padding: 12,
-    alignItems: 'center',
-    flex: 1,
-    marginHorizontal: 4,
-  },
-  macroVal: {
-    fontSize: 16,
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: '800',
     color: Palette.textPrimary,
+    letterSpacing: -0.3,
   },
-  macroLabel: {
-    fontSize: 11,
+  sectionSubtitle: {
+    fontSize: 12,
     color: Palette.textSecondary,
     marginTop: 2,
   },
-  instructionSection: {
-    backgroundColor: Palette.surfaceWhite,
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-  },
-  sectionTitleRow: {
+
+  // ==========================================
+  // MINIMUM WIN TOGGLE
+  // ==========================================
+  minimumWinToggle: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
+    backgroundColor: Palette.surfaceWhite,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
   },
-  instructionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Palette.textPrimary,
+  minimumWinToggleActive: {
+    backgroundColor: Palette.crimson,
+    borderColor: Palette.crimson,
   },
-  bulletText: {
-    fontSize: 15,
-    color: Palette.textPrimary,
-    lineHeight: 24,
-    marginBottom: 10,
+  minimumWinText: {
+    marginLeft: 6,
+    fontSize: 11,
+    fontWeight: '800',
+    color: Palette.textSecondary,
+  },
+  minimumWinTextActive: {
+    color: Palette.surfaceWhite,
   },
 
+  // ==========================================
+  // CYCLE & ORCHESTRATOR CARD
+  // ==========================================
+  cycleCard: {
+    padding: 18,
+    borderRadius: 20,
+    backgroundColor: Palette.surfaceWhite,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
+  },
+  cycleCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  phaseBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    backgroundColor: Palette.creamDark,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
+  },
+  phaseBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Palette.orange,
+    marginRight: 6,
+  },
+  phaseBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: Palette.textPrimary,
+  },
+  orchestratorMessage: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
+    color: Palette.textPrimary,
+    marginTop: 14,
+  },
+
+  // ==========================================
+  // BIOMETRICS GRID
+  // ==========================================
+  biometricGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  biometricTile: {
+    width: (width - 42) / 2,
+    backgroundColor: Palette.surfaceWhite,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
+  },
+  tileHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  tileIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tileLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Palette.textSubtle,
+    textTransform: 'uppercase',
+  },
+  tileValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: Palette.textPrimary,
+  },
+  tileMeta: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Palette.textSecondary,
+    marginTop: 2,
+  },
+
+  // ==========================================
+  // ANALYTICS & CHART
+  // ==========================================
+  analyticsCard: {
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: Palette.surfaceWhite,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
+    marginBottom: 20
+  },
+  chartContainer: {
+    height: 120,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingTop: 20,
+    paddingHorizontal: 10,
+  },
+  chartBarCol: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  barTrack: {
+    height: 80,
+    width: 12,
+    backgroundColor: Palette.cream,
+    borderRadius: 6,
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+  },
+  barFill: {
+    width: '100%',
+    borderRadius: 6,
+  },
+  chartLabel: {
+    marginTop: 6,
+    fontSize: 10,
+    fontWeight: '700',
+    color: Palette.textSubtle,
+  },
+
+  // ==========================================
+  // SLEEP LOG MODAL
+  // ==========================================
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(30, 25, 15, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Palette.creamLight,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 22,
+    maxHeight: '85%',
+  },
+  modalHandle: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Palette.borderStrong,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: Palette.textPrimary,
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: Palette.textSecondary,
+    marginTop: 2,
+    marginBottom: 20,
+  },
+  selectorGroup: {
+    marginBottom: 18,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Palette.textPrimary,
+    marginBottom: 8,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  chipOption: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: Palette.surfaceWhite,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
+    alignItems: 'center',
+  },
+  chipOptionSelected: {
+    backgroundColor: Palette.oceanBlue,
+    borderColor: Palette.oceanBlue,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Palette.textSecondary,
+  },
+  chipTextSelected: {
+    color: Palette.surfaceWhite,
+  },
+  saveButton: {
+    backgroundColor: Palette.oceanBlue,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  saveButtonText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Palette.surfaceWhite,
+  },
 });
