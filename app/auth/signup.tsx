@@ -29,7 +29,7 @@ export default function SignupScreen() {
     setPasswordError(hasValidPassword ? '' : 'Password should be at least 6 characters.');
 
     if (hasValidName && hasValidEmail && hasValidPassword) {
-      router.replace({ pathname: '/profile-setup', params: { name: trimmedName, email: trimmedEmail } });
+      router.replace({ pathname: '/auth/profile-setup', params: { name: trimmedName, email: trimmedEmail } });
     }
   };
 

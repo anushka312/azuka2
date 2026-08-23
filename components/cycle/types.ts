@@ -1,7 +1,3 @@
-export type SymptomSeverity =
-  | 'Mild'
-  | 'Moderate'
-  | 'Severe';
 
 export type SymptomCategory =
   | 'Pain'
@@ -16,7 +12,6 @@ export type LoggedSymptom = {
   id: string;
   name: string;
   category: SymptomCategory;
-  severity: SymptomSeverity;
   detail?: string;
 };
 
@@ -38,9 +33,8 @@ export type DayInfo = {
   energy: string;
   stress: string;
   symptoms: string[];
-  hrv: string;
   sleep: string;
-  cortisol: string;
+  recovery: string;
 
   symptomRecords?: LoggedSymptom[];
 

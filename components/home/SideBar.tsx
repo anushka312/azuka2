@@ -54,7 +54,7 @@ export function Sidebar({ visible, slideAnim, onClose, sidebarWidth }: Props) {
   const handleLogout = () => {
     onClose();
     setTimeout(() => {
-      router.replace('/auth/login');
+      router.replace('/');
     }, 200);
   };
 

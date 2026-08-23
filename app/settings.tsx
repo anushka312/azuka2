@@ -13,6 +13,7 @@ import {
     Alert,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
+import { useAuth } from '@/contexts/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
 import {
     ChevronLeft,
@@ -98,12 +99,20 @@ export default function SettingsScreen() {
                     text: 'Delete',
                     style: 'destructive',
                     onPress: () => {
-                        router.replace('/auth/login');
+                        router.replace('/');
                     },
                 },
             ]
         );
     };
+
+    //log out button
+    const { signOut } = useAuth();
+
+        const handleLogout = async () => {
+        await signOut();
+        router.replace('/');
+        };
 
     return (
         <SafeAreaView style={GlobalStyles.screenContainer}>
@@ -228,9 +237,12 @@ export default function SettingsScreen() {
             {/* ACCOUNT ACTIONS */}
             <Text style={styles.sectionHeader}>Account Actions</Text>
             <View style={{ gap: 10, marginTop: 4, marginBottom: 40 }}>
-                <Pressable style={styles.logoutButton} onPress={() => router.replace('/auth/login')}>
-                    <LogOut size={18} color={Palette.textPrimary} />
-                    <Text style={styles.logoutText}>Log Out</Text>
+                <Pressable
+                    style={styles.logoutButton}
+                    onPress={handleLogout}
+                >
+                <LogOut size={18} color={Palette.textPrimary} />
+                <Text style={styles.logoutText}>Log Out</Text>
                 </Pressable>
 
                 <Pressable style={styles.deleteButton} onPress={handleDeleteAccount}>

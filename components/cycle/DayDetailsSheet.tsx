@@ -350,12 +350,7 @@ export default function DayDetailsSheet({
                   }
                 />
 
-                <InfoTile
-                  label="HRV"
-                  value={
-                    selectedInfo.hrv
-                  }
-                />
+                
 
                 <InfoTile
                   label="Sleep"
@@ -443,7 +438,7 @@ export default function DayDetailsSheet({
                       styles.infoLabel
                     }
                   >
-                    Cortisol risk
+                    recovery score
                   </Text>
 
                   <Text
@@ -452,7 +447,7 @@ export default function DayDetailsSheet({
                     }
                   >
                     {
-                      selectedInfo.cortisol
+                      selectedInfo.recovery
                     }
                   </Text>
 

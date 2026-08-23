@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+
 import {
   SafeAreaView,
   ScrollView,
@@ -8,356 +9,1165 @@ import {
   Pressable,
   Modal,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
+
 import { Stack, useRouter } from 'expo-router';
+
 import {
   ChevronLeft,
   Check,
   Sparkles,
   Activity,
-  ShieldAlert,
   Dumbbell,
   Utensils,
   Calendar,
   Minus,
   Plus,
+  Brain,
+  HeartPulse,
+  Target,
+  ShieldCheck,
 } from 'lucide-react-native';
-import LottieView from 'lottie-react-native';
 
 import { Palette, GlobalStyles } from '@/constants/Styles';
 
-const CYCLE_PHASES = [
-  { name: 'Follicular', color: '#10B981', bg: '#ECFDF5', border: '#A7F3D0' },
-  { name: 'Ovulatory', color: '#F59E0B', bg: '#FEF3C7', border: '#FDE68A' },
-  { name: 'Luteal', color: '#8B5CF6', bg: '#F3E8FF', border: '#DDD6FE' },
-  { name: 'Menstrual', color: '#EF4444', bg: '#FEE2E2', border: '#FCA5A5' },
+// ============================================================
+// OPTIONS
+// ============================================================
+
+const CYCLE_MODES = [
+  'Natural Cycle',
+  'Hormonal Birth Control',
+  'Irregular / PCOS',
+  'Menopause / Perimenopause',
 ];
 
-const WORKOUT_CAPACITIES = [
-  'Low Strain (Yoga / Gentle Walks)',
-  'Moderate Strain (Pilates / Zone 2)',
-  'High Strain (HIIT / Heavy Lifting)',
-];
-
-const DIET_GOALS = [
-  'High Protein & Iron Support',
-  'Glucose Stabilization & Steady Energy',
-  'Anti-Inflammatory & Gut Health',
-  'Maintenance & Healthy Fats',
-];
-
-const FRICTION_POINTS = [
+const SYMPTOM_OPTIONS = [
   'High Fatigue',
+  'Intense Cravings',
+  'Energy Spikes',
+  'Severe Cramps',
   'Brain Fog',
-  'Cravings / Appetite Spikes',
-  'Joint / Muscle Soreness',
 ];
+
+const FOCUS_OPTIONS = [
+  {
+    title: 'Weight Loss',
+    text: 'A weekly deficit with extra recovery protection.',
+    icon: Target,
+  },
+  {
+    title: 'Consistency',
+    text: 'A minimum-win plan that keeps habits sustainable.',
+    icon: Activity,
+  },
+  {
+    title: 'Health & Balance',
+    text: 'Lower stress reactivity and improve energy stability.',
+    icon: HeartPulse,
+  },
+];
+
+const FITNESS_LEVELS = [
+  'Beginner',
+  'Intermediate',
+  'Advanced',
+];
+
+const EQUIPMENT_OPTIONS = [
+  'Home',
+  'Dumbbells',
+  'Full Gym',
+  'Outdoor',
+];
+
+const DIET_OPTIONS = [
+  'Omnivore',
+  'Vegetarian',
+  'Vegan',
+  'Keto',
+  'Pescatarian',
+];
+
+const ALLERGY_OPTIONS = [
+  'Gluten-Free',
+  'Dairy-Free',
+  'Nut-Free',
+  'Soy-Free',
+  'Others',
+];
+
+const FRICTION_OPTIONS = [
+  'Late-night Cravings',
+  'Mid-day Energy Crashes',
+  'Lack of Prep Time',
+  'Under-fueling',
+];
+
+// ============================================================
+// COMPONENT
+// ============================================================
 
 export default function ReconfigureBiologyScreen() {
   const router = useRouter();
 
-  // Cycle Length & Period Parameters State
-  const [cycleLength, setCycleLength] = useState<number>(28);
-  const [periodDuration, setPeriodDuration] = useState<number>(5);
+  // BIOLOGY
+  const [age, setAge] = useState(28);
+  const [ageError, setAgeError] = useState('');
+  const [cycleMode, setCycleMode] = useState('Natural Cycle');
+  const [lastPeriod, setLastPeriod] = useState('');
+  const [cycleLength, setCycleLength] = useState(28);
+  const [periodDuration, setPeriodDuration] = useState(5);
   const [cycleLengthError, setCycleLengthError] = useState('');
 
-  // Selected Engine State
-  const [selectedPhase, setSelectedPhase] = useState('Luteal');
-  const [selectedCapacity, setSelectedCapacity] = useState('Moderate Strain (Pilates / Zone 2)');
-  const [selectedDiet, setSelectedDiet] = useState('High Protein & Iron Support');
-  const [selectedFrictions, setSelectedFrictions] = useState<string[]>([
+  const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([
     'High Fatigue',
-    'Cravings / Appetite Spikes',
   ]);
 
-  // Animation Trigger
+  // FITNESS
+  const [selectedFocus, setSelectedFocus] = useState('Consistency');
+  const [fitnessLevel, setFitnessLevel] = useState('Intermediate');
+
+  const [selectedEquipment, setSelectedEquipment] = useState<string[]>([
+    'Home',
+  ]);
+
+  const [stressLevel, setStressLevel] = useState(3);
+
+  // NUTRITION
+  const [diet, setDiet] = useState('Omnivore');
+
+  const [selectedAllergies, setSelectedAllergies] = useState<string[]>([
+    'Dairy-Free',
+  ]);
+
+  const [selectedFriction, setSelectedFriction] = useState<string[]>([
+    'Late-night Cravings',
+  ]);
+
+  // LOADING
   const [isRecalibrating, setIsRecalibrating] = useState(false);
 
-  const activePhaseConfig = CYCLE_PHASES.find((p) => p.name === selectedPhase) || CYCLE_PHASES[2];
+  // ============================================================
+  // HELPERS
+  // ============================================================
 
-  const handleCycleLengthChange = (val: string) => {
-    const num = parseInt(val, 10);
+  const toggleSelection = (
+    value: string,
+    current: string[],
+    setCurrent: (value: string[]) => void,
+  ) => {
+    setCurrent(
+      current.includes(value)
+        ? current.filter(item => item !== value)
+        : [...current, value],
+    );
+  };
+
+  const handleAgeChange = (value: string) => {
+    const num = parseInt(value, 10);
+
+    if (isNaN(num)) {
+      setAge(0);
+      setAgeError('Enter a valid number');
+      return;
+    }
+
+    setAge(num);
+
+    if (num < 13 || num > 100) {
+      setAgeError('Age should be between 13 and 100.');
+    } else {
+      setAgeError('');
+    }
+  };
+
+  const adjustAge = (delta: number) => {
+    const next = Math.max(
+      0,
+      Math.min(120, age + delta),
+    );
+
+    setAge(next);
+
+    if (next < 13 || next > 100) {
+      setAgeError('Age should be between 13 and 100.');
+    } else {
+      setAgeError('');
+    }
+  };
+
+  const handleCycleLengthChange = (value: string) => {
+    const num = parseInt(value, 10);
+
     if (isNaN(num)) {
       setCycleLength(0);
       setCycleLengthError('Enter a valid number');
       return;
     }
+
     setCycleLength(num);
+
     if (num < 21 || num > 45) {
-      setCycleLengthError('Typical cycles range between 21 and 45 days.');
+      setCycleLengthError(
+        'Cycle length should be between 21 and 45 days.',
+      );
     } else {
       setCycleLengthError('');
     }
   };
 
   const adjustCycleLength = (delta: number) => {
-    const nextVal = Math.max(20, Math.min(60, cycleLength + delta));
-    setCycleLength(nextVal);
-    if (nextVal < 21 || nextVal > 45) {
-      setCycleLengthError('Typical cycles range between 21 and 45 days.');
+    const next = Math.max(
+      20,
+      Math.min(60, cycleLength + delta),
+    );
+
+    setCycleLength(next);
+
+    if (next < 21 || next > 45) {
+      setCycleLengthError(
+        'Cycle length should be between 21 and 45 days.',
+      );
     } else {
       setCycleLengthError('');
     }
   };
 
-  const toggleFriction = (item: string) => {
-    if (selectedFrictions.includes(item)) {
-      setSelectedFrictions(selectedFrictions.filter((f) => f !== item));
-    } else {
-      setSelectedFrictions([...selectedFrictions, item]);
-    }
-  };
-
   const handleSaveAndRecalibrate = () => {
-    if (cycleLength < 20 || cycleLength > 60) {
-      setCycleLengthError('Please enter a cycle length between 20 and 60 days.');
+    if (age < 13 || age > 100) {
+      setAgeError('Please enter an age between 13 and 100.');
+      return;
+    }
+
+    if (cycleLength < 21 || cycleLength > 45) {
+      setCycleLengthError(
+        'Please enter a cycle length between 21 and 45 days.',
+      );
       return;
     }
 
     setIsRecalibrating(true);
+
     setTimeout(() => {
       setIsRecalibrating(false);
       router.replace('/(tabs)/home');
-    }, 3200);
+    }, 2200);
   };
 
-  return (
-    <SafeAreaView style={GlobalStyles.screenContainer}>
-      <Stack.Screen options={{ headerShown: false }} />
+  // ============================================================
+  // SECTION HEADER
+  // ============================================================
 
-      {/* HEADER */}
-      <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={styles.backButton} hitSlop={10}>
-          <ChevronLeft size={22} color={Palette.textPrimary} />
-        </Pressable>
-        <Text style={GlobalStyles.headingMedium}>Re-configure Engine</Text>
-        <View style={{ width: 36 }} />
+  const SectionHeader = ({
+    number,
+    icon,
+    title,
+    description,
+  }: {
+    number: string;
+    icon: React.ReactNode;
+    title: string;
+    description: string;
+  }) => (
+    <View style={styles.sectionHeader}>
+      <View style={styles.sectionIcon}>
+        {icon}
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* INFO NOTICE */}
-        <View style={styles.introCard}>
-          <Activity size={20} color={Palette.oceanBlue} />
-          <Text style={styles.introText}>
-            Updating parameters dynamically adapts your daily minimum-win thresholds, recovery targets, and workout intensity.
+      <View style={styles.sectionHeaderText}>
+        <View style={styles.sectionTitleRow}>
+          <Text style={styles.sectionNumber}>{number}</Text>
+
+          <Text style={styles.sectionTitle}>
+            {title}
           </Text>
         </View>
 
-        {/* 1. CYCLE LENGTH & DURATION CONFIGURATION */}
-        <View style={styles.sectionHeaderRow}>
-          <Calendar size={16} color={Palette.oceanBlue} />
-          <Text style={styles.sectionTitle}>1. Cycle & Period Duration</Text>
+        <Text style={styles.sectionDescription}>
+          {description}
+        </Text>
+      </View>
+    </View>
+  );
+
+  // ============================================================
+  // SCREEN
+  // ============================================================
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <Stack.Screen
+        options={{
+          headerShown: false,
+        }}
+      />
+
+      {/* ======================================================
+          HEADER
+      ====================================================== */}
+
+      <View style={styles.header}>
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.backButton}
+          hitSlop={10}
+        >
+          <ChevronLeft
+            size={21}
+            color={Palette.textPrimary}
+          />
+        </Pressable>
+
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>
+            Re-configure Engine
+          </Text>
+
+          <View style={styles.liveIndicator}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveText}>
+              BIOLOGY SYNC
+            </Text>
+          </View>
         </View>
 
-        <View style={styles.configCard}>
-          {/* Cycle Length Stepper / Input */}
-          <View style={styles.configRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.configLabel}>Average Cycle Length</Text>
-              <Text style={styles.configSublabel}>Interval between period starts</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* ==================================================
+            INTRO
+        ================================================== */}
+
+        <View style={styles.heroCard}>
+          <View style={styles.heroIcon}>
+            <Sparkles
+              size={21}
+              color={Palette.oceanBlue}
+            />
+          </View>
+
+          <View style={styles.heroContent}>
+            <Text style={styles.heroTitle}>
+              Tune your biological engine
+            </Text>
+
+            <Text style={styles.heroText}>
+              Update your biology, training and nutrition
+              inputs. Your daily recommendations will adapt
+              automatically.
+            </Text>
+          </View>
+        </View>
+
+        {/* ==================================================
+            CYCLE
+        ================================================== */}
+
+        <SectionHeader
+          number="01"
+          title="Cycle & Period"
+          description="Help the engine understand your hormonal timeline."
+          icon={
+            <Calendar
+              size={18}
+              color={Palette.oceanBlue}
+            />
+          }
+        />
+
+        <View style={styles.card}>
+          {/* Age */}
+
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.label}>
+                Age
+              </Text>
+
+              <Text style={styles.helper}>
+                Used to personalize your daily targets
+              </Text>
             </View>
 
-            <View style={styles.stepperContainer}>
-              <Pressable style={styles.stepperBtn} onPress={() => adjustCycleLength(-1)}>
-                <Minus size={14} color={Palette.textPrimary} />
+            <View style={styles.stepper}>
+              <Pressable
+                style={styles.stepButton}
+                onPress={() =>
+                  adjustAge(-1)
+                }
+              >
+                <Minus
+                  size={14}
+                  color={Palette.textPrimary}
+                />
               </Pressable>
-              
-              <TextInput
-                style={styles.cycleInput}
-                value={cycleLength ? cycleLength.toString() : ''}
-                onChangeText={handleCycleLengthChange}
-                keyboardType="number-pad"
-                maxLength={2}
-              />
-              <Text style={styles.daysUnitText}>days</Text>
 
-              <Pressable style={styles.stepperBtn} onPress={() => adjustCycleLength(1)}>
-                <Plus size={14} color={Palette.textPrimary} />
+              <TextInput
+                style={styles.numberInput}
+                value={
+                  age
+                    ? age.toString()
+                    : ''
+                }
+                onChangeText={
+                  handleAgeChange
+                }
+                keyboardType="number-pad"
+                maxLength={3}
+              />
+
+              <Text style={styles.unit}>
+                yrs
+              </Text>
+
+              <Pressable
+                style={styles.stepButton}
+                onPress={() =>
+                  adjustAge(1)
+                }
+              >
+                <Plus
+                  size={14}
+                  color={Palette.textPrimary}
+                />
               </Pressable>
             </View>
           </View>
 
-          {cycleLengthError ? <Text style={styles.errorText}>{cycleLengthError}</Text> : null}
+          {ageError ? (
+            <Text style={styles.errorText}>
+              {ageError}
+            </Text>
+          ) : null}
 
           <View style={styles.divider} />
 
-          {/* Period Duration Stepper */}
-          <View style={styles.configRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.configLabel}>Period Duration</Text>
-              <Text style={styles.configSublabel}>Active bleeding days per cycle</Text>
+          <Text style={styles.label}>
+            Cycle tracking mode
+          </Text>
+
+          <View style={styles.chipContainer}>
+            {CYCLE_MODES.map(mode => {
+              const active = cycleMode === mode;
+
+              return (
+                <Pressable
+                  key={mode}
+                  onPress={() => setCycleMode(mode)}
+                  style={[
+                    styles.chip,
+                    active && styles.blueChipActive,
+                  ]}
+                >
+                  {active && (
+                    <Check
+                      size={13}
+                      color={Palette.surfaceWhite}
+                    />
+                  )}
+
+                  <Text
+                    style={[
+                      styles.chipText,
+                      active && styles.activeChipText,
+                    ]}
+                  >
+                    {mode}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.label}>
+            Last period start
+          </Text>
+
+          <TextInput
+            style={styles.dateInput}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor={Palette.textSecondary}
+            value={lastPeriod}
+            onChangeText={setLastPeriod}
+          />
+
+          <View style={styles.divider} />
+
+          {/* Cycle Length */}
+
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.label}>
+                Average cycle length
+              </Text>
+
+              <Text style={styles.helper}>
+                Interval between period starts
+              </Text>
             </View>
 
-            <View style={styles.stepperContainer}>
+            <View style={styles.stepper}>
               <Pressable
-                style={styles.stepperBtn}
-                onPress={() => setPeriodDuration(Math.max(2, periodDuration - 1))}
+                style={styles.stepButton}
+                onPress={() =>
+                  adjustCycleLength(-1)
+                }
               >
-                <Minus size={14} color={Palette.textPrimary} />
+                <Minus
+                  size={14}
+                  color={Palette.textPrimary}
+                />
               </Pressable>
 
-              <Text style={styles.stepperValueText}>{periodDuration} days</Text>
+              <TextInput
+                style={styles.numberInput}
+                value={
+                  cycleLength
+                    ? cycleLength.toString()
+                    : ''
+                }
+                onChangeText={
+                  handleCycleLengthChange
+                }
+                keyboardType="number-pad"
+                maxLength={2}
+              />
+
+              <Text style={styles.unit}>
+                days
+              </Text>
 
               <Pressable
-                style={styles.stepperBtn}
-                onPress={() => setPeriodDuration(Math.min(10, periodDuration + 1))}
+                style={styles.stepButton}
+                onPress={() =>
+                  adjustCycleLength(1)
+                }
               >
-                <Plus size={14} color={Palette.textPrimary} />
+                <Plus
+                  size={14}
+                  color={Palette.textPrimary}
+                />
+              </Pressable>
+            </View>
+          </View>
+
+          {cycleLengthError ? (
+            <Text style={styles.errorText}>
+              {cycleLengthError}
+            </Text>
+          ) : null}
+
+          <View style={styles.divider} />
+
+          {/* Period duration */}
+
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.label}>
+                Period duration
+              </Text>
+
+              <Text style={styles.helper}>
+                Active bleeding days per cycle
+              </Text>
+            </View>
+
+            <View style={styles.stepper}>
+              <Pressable
+                style={styles.stepButton}
+                onPress={() =>
+                  setPeriodDuration(
+                    Math.max(
+                      2,
+                      periodDuration - 1,
+                    ),
+                  )
+                }
+              >
+                <Minus
+                  size={14}
+                  color={Palette.textPrimary}
+                />
+              </Pressable>
+
+              <Text style={styles.stepperValue}>
+                {periodDuration}
+              </Text>
+
+              <Text style={styles.unit}>
+                days
+              </Text>
+
+              <Pressable
+                style={styles.stepButton}
+                onPress={() =>
+                  setPeriodDuration(
+                    Math.min(
+                      10,
+                      periodDuration + 1,
+                    ),
+                  )
+                }
+              >
+                <Plus
+                  size={14}
+                  color={Palette.textPrimary}
+                />
               </Pressable>
             </View>
           </View>
         </View>
 
-        {/* 2. CURRENT PHASE (THEMED CHIPS) */}
-        <View style={styles.sectionHeaderRow}>
-          <Sparkles size={16} color={Palette.textSecondary} />
-          <Text style={styles.sectionTitle}>2. Current Biological Phase</Text>
+        {/* ==================================================
+            SYMPTOMS
+        ================================================== */}
+
+        <SectionHeader
+          number="02"
+          title="Phase Symptoms"
+          description="Select the symptoms your engine should account for."
+          icon={
+            <Brain
+              size={18}
+              color={Palette.crimson}
+            />
+          }
+        />
+
+        <View style={styles.card}>
+          <View style={styles.chipContainer}>
+            {SYMPTOM_OPTIONS.map(item => {
+              const active =
+                selectedSymptoms.includes(item);
+
+              return (
+                <Pressable
+                  key={item}
+                  onPress={() =>
+                    toggleSelection(
+                      item,
+                      selectedSymptoms,
+                      setSelectedSymptoms,
+                    )
+                  }
+                  style={[
+                    styles.symptomChip,
+                    active &&
+                      styles.symptomChipActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      active &&
+                        styles.symptomTextActive,
+                    ]}
+                  >
+                    {item}
+                  </Text>
+
+                  {active && (
+                    <Check
+                      size={14}
+                      color={Palette.crimson}
+                    />
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
-        <View style={styles.phaseGrid}>
-          {CYCLE_PHASES.map((phase) => {
-            const isSelected = selectedPhase === phase.name;
+
+        {/* ==================================================
+            FITNESS
+        ================================================== */}
+
+        <SectionHeader
+          number="03"
+          title="Fitness Baseline"
+          description="Set the training context your recommendations should use."
+          icon={
+            <Dumbbell
+              size={18}
+              color={Palette.orange}
+            />
+          }
+        />
+
+        {/* Focus */}
+
+        <Text style={styles.subLabel}>
+          Primary focus
+        </Text>
+
+        <View style={styles.focusList}>
+          {FOCUS_OPTIONS.map(option => {
+            const active =
+              selectedFocus === option.title;
+
+            const Icon = option.icon;
+
             return (
               <Pressable
-                key={phase.name}
+                key={option.title}
+                onPress={() =>
+                  setSelectedFocus(option.title)
+                }
                 style={[
-                  styles.phaseChip,
-                  isSelected && {
-                    backgroundColor: phase.bg,
-                    borderColor: phase.color,
-                  },
+                  styles.focusCard,
+                  active &&
+                    styles.focusCardActive,
                 ]}
-                onPress={() => setSelectedPhase(phase.name)}
               >
                 <View
                   style={[
-                    styles.phaseIndicator,
-                    { backgroundColor: isSelected ? phase.color : Palette.borderSubtle },
+                    styles.focusIcon,
+                    active &&
+                      styles.focusIconActive,
                   ]}
-                />
-                <Text style={[styles.phaseText, isSelected && { color: phase.color, fontWeight: '800' }]}>
-                  {phase.name}
-                </Text>
-                {isSelected && <Check size={14} color={phase.color} style={{ marginLeft: 'auto' }} />}
-              </Pressable>
-            );
-          })}
-        </View>
+                >
+                  <Icon
+                    size={17}
+                    color={
+                      active
+                        ? Palette.orange
+                        : Palette.textSecondary
+                    }
+                  />
+                </View>
 
-        {/* 3. WORKOUT CAPACITY */}
-        <View style={styles.sectionHeaderRow}>
-          <Dumbbell size={16} color={Palette.textSecondary} />
-          <Text style={styles.sectionTitle}>3. Target Workout Strain</Text>
-        </View>
-        <View style={styles.optionsList}>
-          {WORKOUT_CAPACITIES.map((capacity) => {
-            const isSelected = selectedCapacity === capacity;
-            return (
-              <Pressable
-                key={capacity}
-                style={[
-                  styles.listOption,
-                  isSelected && {
-                    borderColor: activePhaseConfig.color,
-                    backgroundColor: activePhaseConfig.bg,
-                  },
-                ]}
-                onPress={() => setSelectedCapacity(capacity)}
-              >
-                <Text style={[styles.listOptionText, isSelected && { color: Palette.textPrimary, fontWeight: '800' }]}>
-                  {capacity}
-                </Text>
-                <View style={[styles.radioCircle, isSelected && { borderColor: activePhaseConfig.color }]}>
-                  {isSelected && <View style={[styles.radioInner, { backgroundColor: activePhaseConfig.color }]} />}
+                <View style={styles.focusContent}>
+                  <Text
+                    style={[
+                      styles.focusTitle,
+                      active &&
+                        styles.focusTitleActive,
+                    ]}
+                  >
+                    {option.title}
+                  </Text>
+
+                  <Text style={styles.focusText}>
+                    {option.text}
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.radio,
+                    active && styles.radioActive,
+                  ]}
+                >
+                  {active && (
+                    <View
+                      style={styles.radioInner}
+                    />
+                  )}
                 </View>
               </Pressable>
             );
           })}
         </View>
 
-        {/* 4. DIETARY STRATEGY */}
-        <View style={styles.sectionHeaderRow}>
-          <Utensils size={16} color={Palette.textSecondary} />
-          <Text style={styles.sectionTitle}>4. Nutritional Focus</Text>
-        </View>
-        <View style={styles.optionsList}>
-          {DIET_GOALS.map((diet) => {
-            const isSelected = selectedDiet === diet;
+        {/* Fitness Level */}
+
+        <Text style={styles.subLabel}>
+          Current fitness level
+        </Text>
+
+        <View style={styles.chipContainer}>
+          {FITNESS_LEVELS.map(level => {
+            const active =
+              fitnessLevel === level;
+
             return (
               <Pressable
-                key={diet}
+                key={level}
+                onPress={() =>
+                  setFitnessLevel(level)
+                }
                 style={[
-                  styles.listOption,
-                  isSelected && {
-                    borderColor: Palette.forestGreen,
-                    backgroundColor: Palette.surfaceGreenMuted,
-                  },
+                  styles.chip,
+                  active &&
+                    styles.orangeChipActive,
                 ]}
-                onPress={() => setSelectedDiet(diet)}
               >
-                <Text style={[styles.listOptionText, isSelected && { color: Palette.forestGreen, fontWeight: '800' }]}>
-                  {diet}
+                <Text
+                  style={[
+                    styles.chipText,
+                    active &&
+                      styles.activeChipText,
+                  ]}
+                >
+                  {level}
                 </Text>
-                <View style={[styles.radioCircle, isSelected && { borderColor: Palette.forestGreen }]}>
-                  {isSelected && <View style={[styles.radioInner, { backgroundColor: Palette.forestGreen }]} />}
-                </View>
               </Pressable>
             );
           })}
         </View>
 
-        {/* 5. FRICTION POINTS */}
-        <View style={styles.sectionHeaderRow}>
-          <ShieldAlert size={16} color={Palette.crimson} />
-          <Text style={styles.sectionTitle}>5. Active Friction Points</Text>
-        </View>
-        <View style={styles.optionsGrid}>
-          {FRICTION_POINTS.map((friction) => {
-            const isSelected = selectedFrictions.includes(friction);
+        {/* Equipment */}
+
+        <Text style={styles.subLabel}>
+          Available equipment
+        </Text>
+
+        <View style={styles.chipContainer}>
+          {EQUIPMENT_OPTIONS.map(item => {
+            const active =
+              selectedEquipment.includes(item);
+
             return (
               <Pressable
-                key={friction}
+                key={item}
+                onPress={() =>
+                  toggleSelection(
+                    item,
+                    selectedEquipment,
+                    setSelectedEquipment,
+                  )
+                }
                 style={[
-                  styles.frictionChip,
-                  isSelected && styles.frictionChipSelected,
+                  styles.chip,
+                  active &&
+                    styles.orangeChipActive,
                 ]}
-                onPress={() => toggleFriction(friction)}
               >
-                <Text style={[styles.frictionText, isSelected && styles.frictionTextSelected]}>
-                  {friction}
+                {active && (
+                  <Check
+                    size={13}
+                    color={Palette.surfaceWhite}
+                  />
+                )}
+
+                <Text
+                  style={[
+                    styles.chipText,
+                    active &&
+                      styles.activeChipText,
+                  ]}
+                >
+                  {item}
                 </Text>
-                {isSelected && <Check size={14} color={Palette.crimson} />}
               </Pressable>
             );
           })}
         </View>
 
-        {/* SAVE CTA BUTTON */}
-        <Pressable
-          style={[GlobalStyles.btnPrimary, { backgroundColor: Palette.oceanBlue, marginTop: 28, marginBottom: 50 }]}
-          onPress={handleSaveAndRecalibrate}
-        >
-          <Sparkles size={18} color={Palette.surfaceWhite} style={{ marginRight: 8 }} />
-          <Text style={GlobalStyles.btnPrimaryText}>Save & Recalibrate Engine</Text>
-        </Pressable>
-      </ScrollView>
+        {/* Stress */}
 
-      {/* RECALIBRATION ANIMATION OVERLAY */}
-      <Modal visible={isRecalibrating} animationType="fade" statusBarHidden>
-        <SafeAreaView style={styles.fullScreenContainer}>
-          <View style={styles.fullScreenContent}>
-            <LottieView
-              source={{ uri: 'https://assets5.lottiefiles.com/packages/lf20_u4yrau.json' }}
-              autoPlay
-              loop={false}
-              style={styles.lottieAnimation}
-            />
+        <View style={styles.stressHeader}>
+          <Text style={styles.subLabel}>
+            Average daily workload / stress
+          </Text>
 
-            <Text style={styles.fullScreenTitle}>Recalibrating Biological Engine</Text>
-            <Text style={styles.fullScreenSubtitle}>
-              Aligning daily workout strain limits, cycle timeline predictions, macro split recommendations, and recovery targets...
+          <View style={styles.stressBadge}>
+            <Text style={styles.stressBadgeText}>
+              {stressLevel}/5
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.stressContainer}>
+          <View style={styles.stressLine} />
+
+          <View style={styles.stressPoints}>
+            {[1, 2, 3, 4, 5].map(value => {
+              const active =
+                stressLevel === value;
+
+              return (
+                <Pressable
+                  key={value}
+                  onPress={() =>
+                    setStressLevel(value)
+                  }
+                  style={[
+                    styles.stressPoint,
+                    active &&
+                      styles.stressPointActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.stressPointText,
+                      active &&
+                        styles.stressPointTextActive,
+                    ]}
+                  >
+                    {value}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <View style={styles.stressLabels}>
+            <Text style={styles.stressLabel}>
+              Low
             </Text>
 
-            <Text style={styles.redirectingNotice}>Syncing to Dashboard...</Text>
+            <Text style={styles.stressLabel}>
+              High
+            </Text>
+          </View>
+        </View>
+
+        {/* ==================================================
+            NUTRITION
+        ================================================== */}
+
+        <SectionHeader
+          number="04"
+          title="Nutrition & Health"
+          description="Fine-tune food preferences and everyday friction."
+          icon={
+            <Utensils
+              size={18}
+              color={Palette.forestGreen}
+            />
+          }
+        />
+
+        {/* Diet */}
+
+        <Text style={styles.subLabel}>
+          Dietary pattern
+        </Text>
+
+        <View style={styles.chipContainer}>
+          {DIET_OPTIONS.map(item => {
+            const active = diet === item;
+
+            return (
+              <Pressable
+                key={item}
+                onPress={() => setDiet(item)}
+                style={[
+                  styles.chip,
+                  active &&
+                    styles.greenChipActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    active &&
+                      styles.activeChipText,
+                  ]}
+                >
+                  {item}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* Allergies */}
+
+        <Text style={styles.subLabel}>
+          Allergies & sensitivities
+        </Text>
+
+        <View style={styles.chipContainer}>
+          {ALLERGY_OPTIONS.map(item => {
+            const active =
+              selectedAllergies.includes(item);
+
+            return (
+              <Pressable
+                key={item}
+                onPress={() =>
+                  toggleSelection(
+                    item,
+                    selectedAllergies,
+                    setSelectedAllergies,
+                  )
+                }
+                style={[
+                  styles.chip,
+                  active &&
+                    styles.greenChipActive,
+                ]}
+              >
+                {active && (
+                  <Check
+                    size={13}
+                    color={Palette.surfaceWhite}
+                  />
+                )}
+
+                <Text
+                  style={[
+                    styles.chipText,
+                    active &&
+                      styles.activeChipText,
+                  ]}
+                >
+                  {item}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* Friction */}
+
+        <Text style={styles.subLabel}>
+          Primary nutrition friction
+        </Text>
+
+        <View style={styles.chipContainer}>
+          {FRICTION_OPTIONS.map(item => {
+            const active =
+              selectedFriction.includes(item);
+
+            return (
+              <Pressable
+                key={item}
+                onPress={() =>
+                  toggleSelection(
+                    item,
+                    selectedFriction,
+                    setSelectedFriction,
+                  )
+                }
+                style={[
+                  styles.chip,
+                  active &&
+                    styles.greenChipActive,
+                ]}
+              >
+                {active && (
+                  <Check
+                    size={13}
+                    color={Palette.surfaceWhite}
+                  />
+                )}
+
+                <Text
+                  style={[
+                    styles.chipText,
+                    active &&
+                      styles.activeChipText,
+                  ]}
+                >
+                  {item}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* ==================================================
+            ENGINE PREVIEW
+        ================================================== */}
+
+        <View style={styles.previewCard}>
+          <View style={styles.previewIcon}>
+            <ShieldCheck
+              size={20}
+              color={Palette.oceanBlue}
+            />
+          </View>
+
+          <View style={styles.previewContent}>
+            <Text style={styles.previewTitle}>
+              Engine recalibration
+            </Text>
+
+            <Text style={styles.previewText}>
+              These changes will influence your workout
+              intensity, recovery targets, nutrition guidance
+              and daily minimum-win recommendations.
+            </Text>
+          </View>
+        </View>
+
+        {/* ==================================================
+            SAVE BUTTON
+        ================================================== */}
+
+        <Pressable
+          style={styles.saveButton}
+          onPress={handleSaveAndRecalibrate}
+        >
+          <Sparkles
+            size={18}
+            color={Palette.surfaceWhite}
+          />
+
+          <Text style={styles.saveText}>
+            Save & Recalibrate Engine
+          </Text>
+
+          <ChevronLeft
+            size={18}
+            color={Palette.surfaceWhite}
+            style={{
+              transform: [{ rotate: '180deg' }],
+            }}
+          />
+        </Pressable>
+
+        <Text style={styles.saveHint}>
+          Your dashboard will update automatically
+        </Text>
+      </ScrollView>
+
+      {/* ======================================================
+          RECALIBRATION MODAL
+      ====================================================== */}
+
+      <Modal
+        visible={isRecalibrating}
+        animationType="fade"
+      >
+        <SafeAreaView
+          style={styles.recalibrationScreen}
+        >
+          <View style={styles.recalibrationContent}>
+            <View style={styles.loaderContainer}>
+              <ActivityIndicator
+                size="large"
+                color={Palette.oceanBlue}
+              />
+
+              <View style={styles.loaderPulse}>
+                <Sparkles
+                  size={22}
+                  color={Palette.oceanBlue}
+                />
+              </View>
+            </View>
+
+            <Text style={styles.recalibrationTitle}>
+              Recalibrating
+            </Text>
+
+            <Text style={styles.recalibrationSubtitle}>
+              Updating your biological engine with your
+              new cycle, fitness and nutrition inputs.
+            </Text>
+
+            <View style={styles.syncBadge}>
+              <Activity
+                size={14}
+                color={Palette.oceanBlue}
+              />
+
+              <Text style={styles.syncText}>
+                SYNCING DASHBOARD
+              </Text>
+            </View>
           </View>
         </SafeAreaView>
       </Modal>
@@ -365,252 +1175,647 @@ export default function ReconfigureBiologyScreen() {
   );
 }
 
+// ============================================================
+// STYLES
+// ============================================================
+
 const styles = StyleSheet.create({
-  topBar: {
+  screen: {
+    flex: 1,
+    backgroundColor: Palette.cream,
+  },
+
+  // HEADER
+  header: {
+    height: 64,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: Palette.borderSubtle,
+    backgroundColor: Palette.cream,
+    marginTop: 30 ,
+    marginBottom: 0
   },
+
   backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Palette.surfaceWhite,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: Palette.surfaceWhite,
     borderWidth: 1,
     borderColor: Palette.borderSubtle,
   },
-  scrollContent: {
-    paddingVertical: 10,
-  },
-  introCard: {
-    flexDirection: 'row',
+
+  headerCenter: {
     alignItems: 'center',
-    gap: 12,
-    backgroundColor: Palette.surfaceBlueMuted,
-    padding: 14,
-    borderRadius: 14,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: Palette.skyBlue,
+    gap: 3,
+    
   },
-  introText: {
-    flex: 1,
-    fontSize: 13,
-    color: Palette.oceanBlue,
-    fontWeight: '600',
-    lineHeight: 18,
-  },
-  sectionTitle: {
-    fontSize: 14,
+
+  headerTitle: {
+    fontSize: 16,
     fontWeight: '800',
     color: Palette.textPrimary,
   },
-  sectionHeaderRow: {
+
+  headerSpacer: {
+    width: 38,
+  },
+
+  liveIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 22,
-    marginBottom: 10,
+    gap: 5,
   },
-  configCard: {
+
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Palette.forestGreen,
+  },
+
+  liveText: {
+    fontSize: 8,
+    fontWeight: '800',
+    letterSpacing: 1,
+    color: Palette.forestGreen,
+  },
+
+  // CONTENT
+  scrollContent: {
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 50,
+  },
+
+  // HERO
+  heroCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: Palette.surfaceBlueMuted,
+    borderWidth: 1,
+    borderColor: Palette.skyBlue,
+    marginBottom: 8,
+    marginTop:0
+  },
+
+  heroIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: Palette.surfaceWhite,
-    borderRadius: 14,
-    padding: 14,
+    marginRight: 12,
+  },
+
+  heroContent: {
+    flex: 1,
+  },
+
+  heroTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: Palette.oceanBlue,
+    marginBottom: 5,
+  },
+
+  heroText: {
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: Palette.oceanBlue,
+    opacity: 0.85,
+  },
+
+  // SECTION
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 27,
+    marginBottom: 11,
+  },
+
+  sectionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    backgroundColor: Palette.surfaceWhite,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
     borderWidth: 1,
     borderColor: Palette.borderSubtle,
   },
-  configRow: {
+
+  sectionHeaderText: {
+    flex: 1,
+  },
+
+  sectionTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 7,
   },
-  configLabel: {
-    fontSize: 13.5,
-    fontWeight: '700',
+
+  sectionNumber: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: Palette.textSecondary,
+    letterSpacing: 0.5,
+  },
+
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '800',
     color: Palette.textPrimary,
   },
-  configSublabel: {
+
+  sectionDescription: {
     fontSize: 11.5,
     color: Palette.textSecondary,
     marginTop: 2,
   },
-  stepperContainer: {
+
+  // CARD
+  card: {
+    backgroundColor: Palette.surfaceWhite,
+    borderRadius: 18,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
+  },
+
+  // LABELS
+  label: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: Palette.textPrimary,
+    marginBottom: 7,
+  },
+
+  helper: {
+    fontSize: 11,
+    color: Palette.textSecondary,
+    marginTop: 2,
+  },
+
+  subLabel: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: Palette.textPrimary,
+    marginTop: 15,
+    marginBottom: 9,
+  },
+
+  // CHIPS
+  chipContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+  },
+
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: Palette.backgroundApp,
-    padding: 4,
-    borderRadius: 10,
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: Palette.borderSubtle,
-  },
-  stepperBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 7,
+    borderColor: '#DED5BE',
     backgroundColor: Palette.surfaceWhite,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Palette.borderSubtle,
   },
-  cycleInput: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: Palette.textPrimary,
-    minWidth: 24,
-    textAlign: 'center',
-    paddingVertical: 0,
-  },
-  daysUnitText: {
+
+  chipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: Palette.textSecondary,
-    marginRight: 4,
-  },
-  stepperValueText: {
-    fontSize: 13,
-    fontWeight: '800',
     color: Palette.textPrimary,
-    paddingHorizontal: 6,
   },
+
+  activeChipText: {
+    color: Palette.surfaceWhite,
+    fontWeight: '700',
+  },
+
+  blueChipActive: {
+    backgroundColor: Palette.oceanBlue,
+    borderColor: Palette.oceanBlue,
+  },
+
+  orangeChipActive: {
+    backgroundColor: Palette.orange,
+    borderColor: Palette.orange,
+  },
+
+  greenChipActive: {
+    backgroundColor: Palette.forestGreen,
+    borderColor: Palette.forestGreen,
+  },
+
+  // INPUT
+  dateInput: {
+    height: 42,
+    borderRadius: 11,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
+    backgroundColor: Palette.creamLight,
+    color: Palette.textPrimary,
+    fontSize: 12.5,
+  },
+
   divider: {
     height: 1,
     backgroundColor: Palette.borderSubtle,
-    marginVertical: 12,
+    marginVertical: 15,
   },
-  errorText: {
-    fontSize: 11.5,
-    color: Palette.crimson,
-    marginTop: 8,
-    fontWeight: '600',
-  },
-  phaseGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  phaseChip: {
-    width: '48%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderRadius: 14,
-    backgroundColor: Palette.surfaceWhite,
-    borderWidth: 1,
-    borderColor: Palette.borderSubtle,
-  },
-  phaseIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  phaseText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Palette.textPrimary,
-  },
-  optionsList: {
-    gap: 8,
-  },
-  listOption: {
+
+  // SETTING ROW
+  settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 14,
-    borderRadius: 14,
-    backgroundColor: Palette.surfaceWhite,
-    borderWidth: 1.5,
-    borderColor: Palette.borderSubtle,
+    gap: 10,
   },
-  listOptionText: {
-    fontSize: 13.5,
-    fontWeight: '600',
-    color: Palette.textPrimary,
+
+  settingInfo: {
     flex: 1,
-    paddingRight: 10,
   },
-  radioCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: Palette.borderSubtle,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  optionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  frictionChip: {
+
+  stepper: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    gap: 5,
+    padding: 4,
     borderRadius: 12,
+    backgroundColor: Palette.creamLight,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
+  },
+
+  stepButton: {
+    width: 29,
+    height: 29,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: Palette.surfaceWhite,
     borderWidth: 1,
     borderColor: Palette.borderSubtle,
   },
-  frictionChipSelected: {
+
+  numberInput: {
+    width: 28,
+    textAlign: 'center',
+    padding: 0,
+    fontSize: 14,
+    fontWeight: '800',
+    color: Palette.textPrimary,
+  },
+
+  stepperValue: {
+    minWidth: 20,
+    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '800',
+    color: Palette.textPrimary,
+  },
+
+  unit: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Palette.textSecondary,
+    marginRight: 3,
+  },
+
+  errorText: {
+    color: Palette.crimson,
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 8,
+  },
+
+  // SYMPTOMS
+  symptomChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
+    backgroundColor: Palette.creamLight,
+  },
+
+  symptomChipActive: {
     backgroundColor: Palette.surfaceCrimsonMuted,
     borderColor: Palette.crimson,
   },
-  frictionText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Palette.textPrimary,
-  },
-  frictionTextSelected: {
+
+  symptomTextActive: {
     color: Palette.crimson,
-    fontWeight: '700',
+    fontWeight: '800',
   },
-  fullScreenContainer: {
-    flex: 1,
+
+  // FOCUS
+  focusList: {
+    gap: 8,
+  },
+
+  focusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 13,
+    borderRadius: 15,
+    backgroundColor: Palette.surfaceWhite,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
+  },
+
+  focusCardActive: {
+    borderColor: Palette.orange,
+    backgroundColor: Palette.surfaceOrangeMuted,
+  },
+
+  focusIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Palette.creamLight,
+    marginRight: 10,
+  },
+
+  focusIconActive: {
     backgroundColor: Palette.surfaceWhite,
   },
-  fullScreenContent: {
+
+  focusContent: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 28,
   },
-  lottieAnimation: {
-    width: 220,
-    height: 220,
-  },
-  fullScreenTitle: {
-    fontSize: 22,
+
+  focusTitle: {
+    fontSize: 13,
     fontWeight: '800',
     color: Palette.textPrimary,
-    marginTop: 12,
+    marginBottom: 3,
+  },
+
+  focusTitleActive: {
+    color: Palette.orange,
+  },
+
+  focusText: {
+    fontSize: 11.5,
+    color: Palette.textSecondary,
+    lineHeight: 16,
+  },
+
+  radio: {
+    width: 19,
+    height: 19,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: Palette.borderSubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+
+  radioActive: {
+    borderColor: Palette.orange,
+  },
+
+  radioInner: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: Palette.orange,
+  },
+
+  // STRESS
+  stressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  stressBadge: {
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: Palette.surfaceOrangeMuted,
+  },
+
+  stressBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: Palette.orange,
+  },
+
+  stressContainer: {
+    marginTop: 5,
+    paddingHorizontal: 3,
+  },
+
+  stressLine: {
+    position: 'absolute',
+    top: 20,
+    left: 23,
+    right: 23,
+    height: 2,
+    backgroundColor: Palette.borderSubtle,
+  },
+
+  stressPoints: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+
+  stressPoint: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Palette.surfaceWhite,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+
+  stressPointActive: {
+    backgroundColor: Palette.orange,
+    borderColor: Palette.orange,
+  },
+
+  stressPointText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Palette.textPrimary,
+  },
+
+  stressPointTextActive: {
+    color: Palette.surfaceWhite,
+  },
+
+  stressLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+
+  stressLabel: {
+    fontSize: 10,
+    color: Palette.textSecondary,
+  },
+
+  // PREVIEW
+  previewCard: {
+    flexDirection: 'row',
+    marginTop: 25,
+    padding: 15,
+    borderRadius: 16,
+    backgroundColor: Palette.surfaceBlueMuted,
+    borderWidth: 1,
+    borderColor: Palette.skyBlue,
+  },
+
+  previewIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Palette.surfaceWhite,
+    marginRight: 10,
+  },
+
+  previewContent: {
+    flex: 1,
+  },
+
+  previewTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: Palette.oceanBlue,
+    marginBottom: 4,
+  },
+
+  previewText: {
+    fontSize: 11.5,
+    lineHeight: 17,
+    color: Palette.oceanBlue,
+    opacity: 0.85,
+  },
+
+  // SAVE
+  saveButton: {
+    height: 54,
+    borderRadius: 16,
+    backgroundColor: Palette.oceanBlue,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+    marginTop: 18,
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    elevation: 3,
+  },
+
+  saveText: {
+    color: Palette.surfaceWhite,
+    fontSize: 13.5,
+    fontWeight: '800',
+  },
+
+  saveHint: {
+    textAlign: 'center',
+    fontSize: 10.5,
+    color: Palette.textSecondary,
+    marginTop: 9,
+  },
+
+  // RECALIBRATION
+  recalibrationScreen: {
+    flex: 1,
+    backgroundColor: Palette.cream,
+  },
+
+  recalibrationContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+
+  loaderContainer: {
+    width: 125,
+    height: 125,
+    borderRadius: 63,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Palette.surfaceBlueMuted,
+    borderWidth: 1,
+    borderColor: Palette.skyBlue,
+    marginBottom: 28,
+  },
+
+  loaderPulse: {
+    position: 'absolute',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Palette.surfaceWhite,
+  },
+
+  recalibrationTitle: {
+    fontSize: 23,
+    fontWeight: '900',
+    color: Palette.textPrimary,
     marginBottom: 10,
     textAlign: 'center',
   },
-  fullScreenSubtitle: {
-    fontSize: 14,
+
+  recalibrationSubtitle: {
+    fontSize: 13,
+    lineHeight: 20,
     color: Palette.textSecondary,
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 32,
+    maxWidth: 320,
+    marginBottom: 25,
   },
-  redirectingNotice: {
-    fontSize: 13,
-    fontWeight: '700',
+
+  syncBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: Palette.surfaceBlueMuted,
+  },
+
+  syncText: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1,
     color: Palette.oceanBlue,
-    letterSpacing: 0.5,
   },
 });

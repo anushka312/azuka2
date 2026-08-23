@@ -115,7 +115,6 @@ export default function Home() {
         <BiometricGrid
           onOpenSleepModal={() => setSleepModalVisible(true)}
           sleepHours={sleepHours}
-          hrvValue={58}
           cortisolRisk={isMinimumWin ? 'High' : 'Moderate'}
         />
 

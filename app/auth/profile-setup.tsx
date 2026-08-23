@@ -23,6 +23,8 @@ const frictionOptions = ['Late-night Cravings', 'Mid-day Energy Crashes', 'Lack 
 export default function ProfileSetupScreen() {
   const router = useRouter();
   const [step, setStep] = useState(1);
+  const [age, setAge] = useState('');
+  const [ageError, setAgeError] = useState('');
   const [cycleMode, setCycleMode] = useState(cycleModes[0]);
   const [lastPeriod, setLastPeriod] = useState('');
   const [cycleLength, setCycleLength] = useState('28');
@@ -70,14 +72,17 @@ export default function ProfileSetupScreen() {
     const trimmedDate = lastPeriod.trim();
     const datePattern = /^\d{4}-\d{2}-\d{2}$/;
     const cycleValue = Number(cycleLength);
+    const ageValue = Number(age);
 
     const isValidDate = datePattern.test(trimmedDate);
     const isValidCycle = !Number.isNaN(cycleValue) && cycleValue >= 21 && cycleValue <= 45;
+    const isValidAge = !Number.isNaN(ageValue) && ageValue >= 13 && ageValue <= 100;
 
     setLastPeriodError(isValidDate ? '' : 'Please enter a date in YYYY-MM-DD format.');
     setCycleLengthError(isValidCycle ? '' : 'Cycle length should be between 21 and 45 days.');
+    setAgeError(isValidAge ? '' : 'Please enter an age between 13 and 100.');
 
-    if (isValidDate && isValidCycle) {
+    if (isValidDate && isValidCycle && isValidAge) {
       setStep(2);
     }
   };
@@ -120,6 +125,19 @@ export default function ProfileSetupScreen() {
                   <Text style={[GlobalStyles.bodyText, { marginBottom: 20, color: Palette.textSecondary }]}>
                     Azuka uses your cycle to adapt daily intensity and recovery.
                   </Text>
+
+                  <Text style={styles.sectionLabel}>Age</Text>
+                  <TextInput
+                    style={GlobalStyles.inputField}
+                    placeholder="e.g. 29"
+                    keyboardType="number-pad"
+                    value={age}
+                    onChangeText={(value) => {
+                      setAge(value);
+                      if (ageError) setAgeError('');
+                    }}
+                  />
+                  {ageError ? <Text style={{ color: Palette.crimson, marginTop: -8, marginBottom: 8 }}>{ageError}</Text> : null}
 
                   <Text style={styles.sectionLabel}>Cycle tracking mode</Text>
                   <View style={styles.chipRow}>

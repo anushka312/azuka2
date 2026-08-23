@@ -127,9 +127,7 @@ export default function CycleTabScreen() {
           stress={
             selectedInfo?.stress
           }
-          hrv={
-            selectedInfo?.hrv
-          }
+          
           sleep={
             selectedInfo?.sleep
           }

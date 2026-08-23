@@ -30,9 +30,8 @@ export function generateMockPeriodRange(startDateStr: string, duration: number =
       energy: i < 2 ? 'Low' : 'Moderate',
       stress: i < 2 ? 'High' : 'Moderate',
       symptoms: i === 0 ? ['Cramps'] : i === 1 ? ['Cramps', 'Fatigue'] : ['Light Flow'],
-      hrv: `${42 + i} ms`,
       sleep: `+${(1.2 - i * 0.2).toFixed(1)} hrs`,
-      cortisol: i < 2 ? 'High' : 'Moderate',
+      recovery: i < 2 ? 'High' : 'Moderate',
     };
   }
 
@@ -58,9 +57,8 @@ export const dailyData: DailyData = {
     energy: 'High',
     stress: 'Low',
     symptoms: [],
-    hrv: '58 ms',
     sleep: '-0.2 hrs',
-    cortisol: 'Low',
+    recovery: 'Low',
   },
 
   '2026-02-12': {
@@ -72,9 +70,8 @@ export const dailyData: DailyData = {
     energy: 'High',
     stress: 'Low',
     symptoms: [],
-    hrv: '61 ms',
     sleep: '-0.5 hrs',
-    cortisol: 'Low',
+    recovery: 'Low',
   },
 
   '2026-02-16': {
@@ -86,9 +83,8 @@ export const dailyData: DailyData = {
     energy: 'High',
     stress: 'Low',
     symptoms: ['Increased appetite'],
-    hrv: '64 ms',
     sleep: '-0.3 hrs',
-    cortisol: 'Low',
+    recovery: 'Low',
   },
 
   '2026-02-20': {
@@ -100,9 +96,8 @@ export const dailyData: DailyData = {
     energy: 'Moderate',
     stress: 'Moderate',
     symptoms: ['Craving'],
-    hrv: '51 ms',
     sleep: '+0.4 hrs',
-    cortisol: 'Moderate',
+    recovery: 'Moderate',
   },
 
   '2026-02-22': {
@@ -114,9 +109,8 @@ export const dailyData: DailyData = {
     energy: 'Moderate',
     stress: 'Moderate',
     symptoms: ['Fatigue', 'Craving'],
-    hrv: '48 ms',
     sleep: '+0.8 hrs',
-    cortisol: 'Moderate',
+    recovery: 'Moderate',
   },
 
   '2026-02-28': {
@@ -128,8 +122,7 @@ export const dailyData: DailyData = {
     energy: 'Low',
     stress: 'High',
     symptoms: ['Fatigue', 'Craving', 'Bloating'],
-    hrv: '42 ms',
     sleep: '+1.5 hrs',
-    cortisol: 'High',
+    recovery: 'High',
   },
 };

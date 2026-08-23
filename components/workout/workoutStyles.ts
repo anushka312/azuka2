@@ -25,6 +25,191 @@ export const styles = StyleSheet.create({
     lineHeight: 20,
     color: Palette.textSecondary,
   },
+  /* =========================
+     ACTIVITY DETAILS SECTION
+  ========================= */
+
+  selectedDetailsSection: {
+    marginBottom: 16,
+  },
+
+  modalSectionTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Palette.textPrimary,
+    marginBottom: 10,
+  },
+
+  activityDetailCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
+    backgroundColor: Palette.surfaceWhite,
+    padding: 14,
+    marginBottom: 10,
+  },
+
+  activityDetailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+
+  activityDetailTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+
+  smallActivityIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: Palette.surfaceGreenMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+
+  activityDetailName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Palette.textPrimary,
+  },
+
+  activityDetails: {
+    gap: 12,
+  },
+
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  setsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+
+  setInputGroup: {
+    flex: 1,
+  },
+
+  detailLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Palette.textSecondary,
+    marginBottom: 4,
+  },
+
+  numberInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Palette.borderMuted,
+    borderRadius: 10,
+    backgroundColor: Palette.surfaceSubtle,
+    paddingHorizontal: 10,
+    height: 38,
+  },
+
+  numberInput: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Palette.textPrimary,
+    padding: 0,
+
+    
+    //backgroundColor: Palette.cream
+  },
+
+  inputSuffix: {
+    fontSize: 11,
+    color: Palette.textSecondary,
+    marginLeft: 4,
+  },
+
+  /* =========================
+     INTENSITY SECTION
+  ========================= */
+
+  intensitySection: {
+    marginTop: 2,
+  },
+
+  intensityRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+
+  intensityButton: {
+    flex: 1,
+    height: 34,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Palette.borderMuted,
+    backgroundColor: Palette.surfaceSubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  intensityButtonActive: {
+    borderColor: Palette.forestGreen,
+    backgroundColor: Palette.surfaceGreenMuted,
+  },
+
+  intensityText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Palette.textSecondary,
+  },
+
+  intensityTextActive: {
+    color: Palette.forestGreen,
+    fontWeight: '700',
+  },
+
+  /* =========================
+     CALORIES ESTIMATE
+  ========================= */
+
+  caloriesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Palette.surfaceOrangeMuted,
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 2,
+  },
+
+  caloriesIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: Palette.surfaceWhite,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+
+  caloriesLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Palette.textPrimary,
+  },
+
+  caloriesSubtext: {
+    fontSize: 10,
+    color: Palette.textSecondary,
+  },
+
+  caloriesValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Palette.orange,
+  },
 
   /* =========================
      TODAY EXERCISES
@@ -385,12 +570,12 @@ export const styles = StyleSheet.create({
     marginTop: 16,
   },
 
-  modalSectionTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: Palette.textPrimary,
-    marginBottom: 7,
-  },
+  // modalSectionTitle: {
+  //   fontSize: 14,
+  //   fontWeight: '800',
+  //   color: Palette.textPrimary,
+  //   marginBottom: 7,
+  // },
 
   modalBody: {
     fontSize: 13,

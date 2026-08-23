@@ -20,6 +20,19 @@ export type Activity = {
   id: string;
   name: string;
   icon: keyof typeof Ionicons.glyphMap;
+
+  metric?: 'duration' | 'sets';
+
+  durationMinutes?: number;
+
+  sets?: number;
+  reps?: number;
+
+  intensity?: 'Easy' | 'Moderate' | 'Hard';
+
+  caloriesBurned?: number;
+
+  notes?: string;
 };
 
 const exercises: Exercise[] = [

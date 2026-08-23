@@ -7,19 +7,23 @@ import { styles } from './styles';
 type Props = {
   onOpenSleepModal: () => void;
   sleepHours: string;
-  hrvValue: number;
-  cortisolRisk: string;
+  dailyRecoveryScore: number;
+  stressLevel: string;
+  phaseEnergyScore: string;
+  strainOutputBalanceScore: number;
 };
 
 export function BiometricGrid({
   onOpenSleepModal,
   sleepHours,
-  hrvValue,
-  cortisolRisk,
+  dailyRecoveryScore,
+  stressLevel,
+  phaseEnergyScore,
+  strainOutputBalanceScore,
 }: Props) {
   return (
     <View style={styles.biometricGrid}>
-      {/* SLEEP TILE */}
+      {/* SLEEP TILE (Left untouched as requested) */}
       <TouchableOpacity
         style={styles.biometricTile}
         onPress={onOpenSleepModal}
@@ -36,16 +40,16 @@ export function BiometricGrid({
         <Text style={styles.tileMeta}>Tap to update log</Text>
       </TouchableOpacity>
 
-      {/* HRV TILE */}
+      {/* DAILY RECOVERY SCORE TILE */}
       <View style={styles.biometricTile}>
         <View style={styles.tileHeader}>
-          <View style={[styles.tileIconContainer, { backgroundColor: Palette.surfaceGreenMuted }]}>
-            <Ionicons name="heart" size={16} color={Palette.forestGreen} />
+          <View style={[styles.tileIconContainer, { backgroundColor: Palette.surfaceGreenMuted || '#E6F4EA' }]}>
+            <Ionicons name="shield-checkmark" size={16} color={Palette.forestGreen || '#34A853'} />
           </View>
         </View>
-        <Text style={styles.tileLabel}>Body Recovery</Text>
-        <Text style={styles.tileValue}>{hrvValue} ms</Text>
-        <Text style={styles.tileMeta}>Ready for daily tasks</Text>
+        <Text style={styles.tileLabel}>Daily Recovery</Text>
+        <Text style={styles.tileValue}>{dailyRecoveryScore}%</Text>
+        <Text style={styles.tileMeta}>Capacity today</Text>
       </View>
 
       {/* STRESS LEVEL TILE */}
@@ -56,20 +60,32 @@ export function BiometricGrid({
           </View>
         </View>
         <Text style={styles.tileLabel}>Stress Level</Text>
-        <Text style={styles.tileValue}>{cortisolRisk}</Text>
-        <Text style={styles.tileMeta}>Take light breaks</Text>
+        <Text style={styles.tileValue}>{stressLevel}</Text>
+        <Text style={styles.tileMeta}>Monitor workload</Text>
       </View>
 
-      {/* ENERGY TILE */}
+      {/* PHASE ENERGY TILE */}
       <View style={styles.biometricTile}>
         <View style={styles.tileHeader}>
           <View style={[styles.tileIconContainer, { backgroundColor: Palette.surfaceCrimsonMuted }]}>
             <Ionicons name="battery-charging" size={16} color={Palette.crimson} />
           </View>
         </View>
-        <Text style={styles.tileLabel}>Energy Bank</Text>
-        <Text style={styles.tileValue}>62%</Text>
-        <Text style={styles.tileMeta}>Pace yourself today</Text>
+        <Text style={styles.tileLabel}>Phase Energy</Text>
+        <Text style={styles.tileValue}>{phaseEnergyScore}</Text>
+        <Text style={styles.tileMeta}>Hormonal baseline</Text>
+      </View>
+
+      {/* STRAIN OUTPUT BALANCE TILE */}
+      <View style={styles.biometricTile}>
+        <View style={styles.tileHeader}>
+          <View style={[styles.tileIconContainer, { backgroundColor: Palette.surfaceBlueMuted }]}>
+            <Ionicons name="analytics" size={16} color={Palette.oceanBlue} />
+          </View>
+        </View>
+        <Text style={styles.tileLabel}>Strain Balance</Text>
+        <Text style={styles.tileValue}>{strainOutputBalanceScore}%</Text>
+        <Text style={styles.tileMeta}>Output alignment</Text>
       </View>
     </View>
   );

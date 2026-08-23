@@ -39,15 +39,7 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
     time: '15m ago',
     read: false,
   },
-  {
-    id: '2',
-    type: 'biometric',
-    title: 'Elevated Cortisol Risk',
-    description:
-      'HRV dropped below 58ms during rest. Consider a light recovery session today.',
-    time: '2h ago',
-    read: false,
-  },
+  
   {
     id: '3',
     type: 'alert',
