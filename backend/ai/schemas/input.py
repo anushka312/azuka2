@@ -108,8 +108,8 @@ class WorkoutState(BaseModel):
 
 
 class UserState(BaseModel):
-    phase: str
-    cycle_day: int
+    phase: Optional[str] = None
+    cycle_day: Optional[int] = None
 
     sleep: Optional[SleepState] = None
     symptoms: Optional[Symptoms] = None
