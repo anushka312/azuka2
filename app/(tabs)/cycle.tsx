@@ -121,19 +121,7 @@ export default function CycleTabScreen() {
         {/* SIGNALS */}
 
         <SignalsSection
-          energy={
-            selectedInfo?.energy
-          }
-          stress={
-            selectedInfo?.stress
-          }
-          
-          sleep={
-            selectedInfo?.sleep
-          }
-          cortisol={
-            selectedInfo?.cortisol
-          }
+          symptoms={selectedInfo?.symptomRecords}
         />
 
       </ScrollView>

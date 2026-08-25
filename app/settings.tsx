@@ -303,7 +303,7 @@ export default function SettingsScreen() {
     </Modal>
 
     {/* FULL PAGE RECALIBRATION & CELEBRATION ANIMATION */ }
-    <Modal visible={isRecalibrating} animationType="fade" statusBarHidden>
+    <Modal visible={isRecalibrating} animationType="fade" statusBarTranslucent>
         <SafeAreaView style={styles.fullScreenContainer}>
             <View style={styles.fullScreenContent}>
                 <LottieView

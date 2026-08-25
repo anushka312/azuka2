@@ -223,6 +223,7 @@ const CATEGORY_ICONS: Record<
   Appetite: 'restaurant-outline',
   Mood: 'happy-outline',
   Physical: 'body-outline',
+  Other: 'help-circle-outline',
 };
 
 /**

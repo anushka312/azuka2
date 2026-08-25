@@ -1,12 +1,11 @@
-import React, { useMemo, useState } from 'react';
-
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   Pressable,
   Text,
   TextInput,
   View,
+  Alert,
 } from 'react-native';
-
 import {
   ChevronRight,
   Clock,
@@ -15,17 +14,17 @@ import {
   Search,
   Users,
   X,
+  Sparkles,
 } from 'lucide-react-native';
 
-import { Palette } from '@/constants/Styles';
+import { Palette, GlobalStyles } from '@/constants/Styles';
 import { styles } from './foodStyles';
+import RecipeDetailModal, { Recipe } from './RecipeDetailModal';
+import { aiService, RecipeItem, AzukaDailyOutput } from '@/services/aiService';
+import { RecipeCardSkeleton, Skeleton } from '@/components/ui/Skeleton';
+import { ErrorCard } from '@/components/ui/StateFeedback';
 
-import RecipeDetailModal, {
-  Recipe,
-} from './RecipeDetailModal';
-
-
-const recipes: Recipe[] = [
+const DEFAULT_RECIPES: Recipe[] = [
   {
     id: '1',
     name: 'High-Protein Buddha Bowl',
@@ -35,10 +34,8 @@ const recipes: Recipe[] = [
     phase: 'Luteal',
     tags: ['Anti-inflammatory', 'Iron-rich'],
     color: Palette.orange,
-
     description:
       'A balanced bowl with complex carbohydrates, protein and micronutrients designed to keep you satisfied during the luteal phase.',
-
     ingredients: [
       'Quinoa',
       'Chickpeas',
@@ -47,11 +44,9 @@ const recipes: Recipe[] = [
       'Pumpkin seeds',
       'Tahini dressing',
     ],
-
     whyItHelps:
       'Complex carbohydrates provide sustained energy while pumpkin seeds and leafy greens add magnesium and iron-rich nutrients.',
   },
-
   {
     id: '2',
     name: 'Quinoa Power Salad',
@@ -61,10 +56,8 @@ const recipes: Recipe[] = [
     phase: 'Ovulatory',
     tags: ['Energy boost', 'Light'],
     color: Palette.oceanBlue,
-
     description:
       'A fresh, nutrient-dense salad designed for lighter meals during the higher-energy part of the cycle.',
-
     ingredients: [
       'Quinoa',
       'Cucumber',
@@ -73,11 +66,9 @@ const recipes: Recipe[] = [
       'Mixed greens',
       'Lemon dressing',
     ],
-
     whyItHelps:
       'Fresh vegetables, healthy fats and complex carbohydrates provide a light but nutrient-dense meal.',
   },
-
   {
     id: '3',
     name: 'Sweet Potato & Chicken',
@@ -87,10 +78,8 @@ const recipes: Recipe[] = [
     phase: 'Luteal',
     tags: ['Comfort', 'Carb support'],
     color: Palette.orange,
-
     description:
       'A warm and satisfying combination of lean protein and slow-digesting carbohydrates.',
-
     ingredients: [
       'Chicken breast',
       'Sweet potato',
@@ -99,11 +88,9 @@ const recipes: Recipe[] = [
       'Garlic',
       'Mixed herbs',
     ],
-
     whyItHelps:
       'The combination of protein and complex carbohydrates can make this a satisfying option when appetite and energy needs increase.',
   },
-
   {
     id: '4',
     name: 'Salmon Omega Bowl',
@@ -113,10 +100,8 @@ const recipes: Recipe[] = [
     phase: 'Follicular',
     tags: ['Brain boost', 'Omega-3'],
     color: Palette.forestGreen,
-
     description:
       'A protein-rich salmon bowl with healthy fats and nutrient-dense vegetables.',
-
     ingredients: [
       'Salmon',
       'Brown rice',
@@ -125,12 +110,10 @@ const recipes: Recipe[] = [
       'Sesame seeds',
       'Soy-ginger dressing',
     ],
-
     whyItHelps:
       'Salmon provides high-quality protein and omega-3 fatty acids alongside nutrient-rich vegetables.',
   },
 ];
-
 
 const phases = [
   'All',
@@ -140,27 +123,66 @@ const phases = [
   'Luteal',
 ];
 
-
 export default function RecipeGenerator() {
+  const [recipesList, setRecipesList] = useState<Recipe[]>(DEFAULT_RECIPES);
+  const [foodComment, setFoodComment] = useState<string>(
+    'Focus on complex carbs, magnesium, protein and anti-inflammatory foods to support your current phase.'
+  );
+  
+  // Loading & Error states
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [selectedPhase, setSelectedPhase] = useState('All');
+  const [showFilters, setShowFilters] = useState(false);
 
-  const [selectedRecipe, setSelectedRecipe] =
-    useState<Recipe | null>(null);
+  // Fetch AI-generated nutrition recommendations & recipes from FastAPI
+  const fetchNutritionGuidance = useCallback(async () => {
+    try {
+      setLoading(true);
+      setErrorMsg(null);
+      const plan: AzukaDailyOutput = await aiService.getLatestDailyPlan('default_user');
+      
+      if (plan) {
+        if (plan.food_comment) {
+          setFoodComment(plan.food_comment);
+        }
+        if (plan.recipes && plan.recipes.length > 0) {
+          const mapped: Recipe[] = plan.recipes.map((r: RecipeItem, idx: number) => ({
+            id: `ai-recipe-${idx}`,
+            name: r.name,
+            time: 20,
+            calories: r.calories || 450,
+            protein: r.protein || 30,
+            phase: r.tags?.some(t => t.toLowerCase().includes('luteal')) ? 'Luteal' : 'Follicular',
+            tags: r.tags || ['Bio-Adaptive', 'High-Protein'],
+            color: idx % 2 === 0 ? Palette.orange : Palette.forestGreen,
+            description: r.description || 'Nutrient-rich bio-adaptive meal.',
+            ingredients: r.ingredients || [],
+            whyItHelps: r.comments || 'Specifically recommended to support your metabolic phase.',
+          }));
 
-  const [selectedPhase, setSelectedPhase] =
-    useState('All');
+          setRecipesList([...mapped, ...DEFAULT_RECIPES]);
+        }
+      }
+    } catch (err: any) {
+      console.warn('[RecipeGenerator] Error loading recipe guidance:', err);
+      setErrorMsg('Could not fetch live recipes from engine. Displaying offline library.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const [showFilters, setShowFilters] =
-    useState(false);
-
+  useEffect(() => {
+    fetchNutritionGuidance();
+  }, [fetchNutritionGuidance]);
 
   const filteredRecipes = useMemo(() => {
-
     const query = search.trim().toLowerCase();
 
-    return recipes.filter((recipe) => {
-
+    return recipesList.filter((recipe) => {
       const matchesSearch =
         !query ||
         recipe.name.toLowerCase().includes(query) ||
@@ -175,26 +197,16 @@ export default function RecipeGenerator() {
 
       return matchesSearch && matchesPhase;
     });
-
-  }, [search, selectedPhase]);
-
+  }, [search, selectedPhase, recipesList]);
 
   return (
     <View>
-
       {/* =========================
-          SEARCH
+          SEARCH & FILTER ROW
       ========================= */}
-
       <View style={styles.searchRow}>
-
         <View style={styles.searchBox}>
-
-          <Search
-            size={18}
-            color={Palette.textMuted}
-          />
-
+          <Search size={18} color={Palette.textMuted} />
           <TextInput
             value={search}
             onChangeText={setSearch}
@@ -202,32 +214,19 @@ export default function RecipeGenerator() {
             placeholderTextColor={Palette.textSubtle}
             style={styles.searchInput}
           />
-
           {search.length > 0 && (
-            <Pressable
-              onPress={() => setSearch('')}
-            >
-              <X
-                size={16}
-                color={Palette.textMuted}
-              />
+            <Pressable onPress={() => setSearch('')}>
+              <X size={16} color={Palette.textMuted} />
             </Pressable>
           )}
-
         </View>
 
-
         {/* FILTER BUTTON */}
-
         <Pressable
-          onPress={() =>
-            setShowFilters((previous) => !previous)
-          }
+          onPress={() => setShowFilters((previous) => !previous)}
           style={[
             styles.filterButton,
-
-            showFilters &&
-              styles.filterButtonActive,
+            showFilters && styles.filterButtonActive,
           ]}
         >
           <Filter
@@ -238,46 +237,29 @@ export default function RecipeGenerator() {
                 : Palette.oceanBlue
             }
           />
-
           {selectedPhase !== 'All' && (
             <View style={styles.filterDot} />
           )}
         </Pressable>
-
       </View>
-
 
       {/* =========================
           FILTER PANEL
       ========================= */}
-
       {showFilters && (
         <View style={styles.filterPanel}>
-
           <View style={styles.filterHeader}>
-
             <Text style={styles.filterTitle}>
               Filter by phase
             </Text>
-
-            <Pressable
-              onPress={() => setShowFilters(false)}
-            >
-              <X
-                size={17}
-                color={Palette.textSecondary}
-              />
+            <Pressable onPress={() => setShowFilters(false)}>
+              <X size={17} color={Palette.textSecondary} />
             </Pressable>
-
           </View>
 
-
           <View style={styles.filterOptions}>
-
             {phases.map((phase) => {
-
-              const isSelected =
-                selectedPhase === phase;
+              const isSelected = selectedPhase === phase;
 
               return (
                 <Pressable
@@ -288,17 +270,13 @@ export default function RecipeGenerator() {
                   }}
                   style={[
                     styles.filterChip,
-
-                    isSelected &&
-                      styles.filterChipActive,
+                    isSelected && styles.filterChipActive,
                   ]}
                 >
                   <Text
                     style={[
                       styles.filterChipText,
-
-                      isSelected &&
-                        styles.filterChipTextActive,
+                      isSelected && styles.filterChipTextActive,
                     ]}
                   >
                     {phase}
@@ -306,240 +284,167 @@ export default function RecipeGenerator() {
                 </Pressable>
               );
             })}
-
           </View>
-
         </View>
       )}
-
 
       {/* =========================
           ACTIVE FILTER
       ========================= */}
-
       {selectedPhase !== 'All' && (
         <View style={styles.activeFilterRow}>
-
           <Text style={styles.activeFilterText}>
             Showing {selectedPhase} recipes
           </Text>
-
-          <Pressable
-            onPress={() => setSelectedPhase('All')}
-          >
+          <Pressable onPress={() => setSelectedPhase('All')}>
             <Text style={styles.clearFilterText}>
               Clear
             </Text>
           </Pressable>
-
         </View>
       )}
 
+      {/* ERROR CARD */}
+      {errorMsg && (
+        <ErrorCard
+          title="Nutrition Sync Notice"
+          message={errorMsg}
+          onRetry={fetchNutritionGuidance}
+        />
+      )}
 
       {/* =========================
           PHASE RECOMMENDATION
       ========================= */}
+      {loading ? (
+        <View style={[styles.phaseCard, { gap: 8 }]}>
+          <Skeleton width="60%" height={20} />
+          <Skeleton width="100%" height={14} />
+          <Skeleton width="85%" height={14} />
+        </View>
+      ) : (
+        <View style={styles.phaseCard}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <Sparkles size={16} color={Palette.orange} />
+            <Text style={styles.phaseTitle}>
+              Bio-Adaptive Nutrition Strategy
+            </Text>
+          </View>
 
-      <View style={styles.phaseCard}>
-
-        <Text style={styles.phaseTitle}>
-          Luteal phase recommendations
-        </Text>
-
-        <Text style={styles.phaseText}>
-          Focus on complex carbs, magnesium, protein
-          and anti-inflammatory foods to support your
-          current phase.
-        </Text>
-
-      </View>
-
+          <Text style={styles.phaseText}>
+            {foodComment}
+          </Text>
+        </View>
+      )}
 
       {/* =========================
-          RECIPE CARDS
+          RECIPE CARDS / SKELETONS
       ========================= */}
-
-      {filteredRecipes.map((recipe) => (
-
-        <Pressable
-          key={recipe.id}
-
-          onPress={() =>
-            setSelectedRecipe(recipe)
-          }
-
-          style={({ pressed }) => [
-            styles.recipeCard,
-            {
-              opacity: pressed ? 0.92 : 1,
-
-              transform: [
-                {
-                  scale: pressed ? 0.985 : 1,
-                },
-              ],
-            },
-          ]}
-        >
-
-          {/* IMAGE PLACEHOLDER */}
-
-          <View
-            style={[
-              styles.recipeImage,
+      {loading ? (
+        <View style={{ gap: 16 }}>
+          <RecipeCardSkeleton />
+          <RecipeCardSkeleton />
+        </View>
+      ) : (
+        filteredRecipes.map((recipe) => (
+          <Pressable
+            key={recipe.id}
+            onPress={() => setSelectedRecipe(recipe)}
+            style={({ pressed }) => [
+              styles.recipeCard,
               {
-                backgroundColor:
-                  `${recipe.color}18`,
+                opacity: pressed ? 0.92 : 1,
+                transform: [{ scale: pressed ? 0.985 : 1 }],
               },
             ]}
           >
-            <Flame
-              size={48}
-              color={recipe.color}
-            />
-          </View>
-
-
-          {/* CONTENT */}
-
-          <View style={styles.recipeContent}>
-
-            <View style={styles.recipeHeader}>
-
-              <Text style={styles.recipeName}>
-                {recipe.name}
-              </Text>
-
-              <ChevronRight
-                size={20}
-                color={Palette.textMuted}
-              />
-
+            {/* IMAGE PLACEHOLDER */}
+            <View
+              style={[
+                styles.recipeImage,
+                { backgroundColor: `${recipe.color}18` },
+              ]}
+            >
+              <Flame size={48} color={recipe.color} />
             </View>
 
-
-            {/* META */}
-
-            <View style={styles.recipeMetaRow}>
-
-              <View style={styles.recipeMeta}>
-
-                <Clock
-                  size={13}
-                  color={Palette.textSecondary}
-                />
-
-                <Text style={styles.recipeMetaText}>
-                  {recipe.time} min
+            {/* CONTENT */}
+            <View style={styles.recipeContent}>
+              <View style={styles.recipeHeader}>
+                <Text style={styles.recipeName}>
+                  {recipe.name}
                 </Text>
-
+                <ChevronRight size={20} color={Palette.textMuted} />
               </View>
 
-
-              <View style={styles.recipeMeta}>
-
-                <Flame
-                  size={13}
-                  color={Palette.textSecondary}
-                />
-
-                <Text style={styles.recipeMetaText}>
-                  {recipe.calories} cal
-                </Text>
-
-              </View>
-
-
-              <View style={styles.recipeMeta}>
-
-                <Users
-                  size={13}
-                  color={Palette.textSecondary}
-                />
-
-                <Text style={styles.recipeMetaText}>
-                  {recipe.protein}g protein
-                </Text>
-
-              </View>
-
-            </View>
-
-
-            {/* TAGS */}
-
-            <View style={styles.tagRow}>
-
-              <View style={styles.phaseBadge}>
-
-                <Text style={styles.phaseBadgeText}>
-                  {recipe.phase}
-                </Text>
-
-              </View>
-
-
-              {recipe.tags.map((tag) => (
-
-                <View
-                  key={tag}
-                  style={styles.tag}
-                >
-                  <Text style={styles.tagText}>
-                    {tag}
+              {/* META */}
+              <View style={styles.recipeMetaRow}>
+                <View style={styles.recipeMeta}>
+                  <Clock size={13} color={Palette.textSecondary} />
+                  <Text style={styles.recipeMetaText}>
+                    {recipe.time} min
                   </Text>
                 </View>
 
-              ))}
+                <View style={styles.recipeMeta}>
+                  <Flame size={13} color={Palette.textSecondary} />
+                  <Text style={styles.recipeMetaText}>
+                    {recipe.calories} cal
+                  </Text>
+                </View>
 
+                <View style={styles.recipeMeta}>
+                  <Users size={13} color={Palette.textSecondary} />
+                  <Text style={styles.recipeMetaText}>
+                    {recipe.protein}g protein
+                  </Text>
+                </View>
+              </View>
+
+              {/* TAGS */}
+              <View style={styles.tagRow}>
+                <View style={styles.phaseBadge}>
+                  <Text style={styles.phaseBadgeText}>
+                    {recipe.phase}
+                  </Text>
+                </View>
+
+                {recipe.tags.map((tag) => (
+                  <View key={tag} style={styles.tag}>
+                    <Text style={styles.tagText}>
+                      {tag}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             </View>
-
-          </View>
-
-        </Pressable>
-
-      ))}
-
+          </Pressable>
+        ))
+      )}
 
       {/* =========================
           EMPTY STATE
       ========================= */}
-
-      {filteredRecipes.length === 0 && (
-
+      {!loading && filteredRecipes.length === 0 && (
         <View style={styles.emptyState}>
-
-          <Search
-            size={30}
-            color={Palette.textMuted}
-          />
-
+          <Search size={30} color={Palette.textMuted} />
           <Text style={styles.emptyTitle}>
             No recipes found
           </Text>
-
           <Text style={styles.emptyText}>
-            Try another search or change your phase
-            filter.
+            Try another search or change your phase filter.
           </Text>
-
         </View>
-
       )}
-
 
       {/* =========================
           RECIPE DETAIL MODAL
       ========================= */}
-
       <RecipeDetailModal
         visible={selectedRecipe !== null}
         recipe={selectedRecipe}
-        onClose={() =>
-          setSelectedRecipe(null)
-        }
+        onClose={() => setSelectedRecipe(null)}
       />
-
     </View>
   );
 }
