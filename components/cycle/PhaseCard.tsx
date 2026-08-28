@@ -3,44 +3,38 @@ import { Text, View } from 'react-native';
 
 import { GlobalStyles, Palette } from '@/constants/Styles';
 import { dailyData } from './data';
+
 import { styles } from './styles';
 
 interface PhaseCardProps {
   selectedDate?: string;
-  phase?: string;
-  cycleDay?: number;
-  cycleLength?: number;
-  progress?: number;
-  nextPeriod?: string;
-  badge?: string;
 }
 
-const phaseConfig: Record<string, { color: string; backgroundColor: string; badge: string }> = {
+const phaseConfig = {
   Menstrual: {
     color: Palette.crimson,
     backgroundColor: Palette.surfaceCrimsonMuted,
     badge: 'Recovery',
   },
+
   Follicular: {
     color: Palette.forestGreen,
     backgroundColor: Palette.surfaceGreenMuted,
     badge: 'Build',
   },
+
   Ovulation: {
     color: Palette.marigold,
     backgroundColor: Palette.surfaceMarigoldMuted,
     badge: 'Peak',
   },
-  Ovulatory: {
-    color: Palette.marigold,
-    backgroundColor: Palette.surfaceMarigoldMuted,
-    badge: 'Peak',
-  },
+
   Luteal: {
     color: Palette.oceanBlue,
     backgroundColor: Palette.surfaceBlueMuted,
     badge: 'Balance',
   },
+
   'Late Luteal': {
     color: Palette.orange,
     backgroundColor: Palette.surfaceOrangeMuted,
@@ -50,39 +44,40 @@ const phaseConfig: Record<string, { color: string; backgroundColor: string; badg
 
 const getTodayDate = () => {
   const today = new Date();
+
   const year = today.getFullYear();
   const month = String(today.getMonth() + 1).padStart(2, '0');
   const day = String(today.getDate()).padStart(2, '0');
+
   return `${year}-${month}-${day}`;
 };
 
 export default function PhaseCard({
   selectedDate,
-  phase: overridePhase,
-  cycleDay: overrideCycleDay,
-  cycleLength: overrideCycleLength,
-  progress: overrideProgress,
-  nextPeriod: overrideNextPeriod,
-  badge: overrideBadge,
 }: PhaseCardProps) {
+  // Use selected date if provided, otherwise use today's date
   const today = getTodayDate();
   const dateToUse = selectedDate ?? today;
 
+  // Get data for selected/today's date
   let data = dailyData[dateToUse];
+
+  // If today's data doesn't exist yet, use the latest
+  // available data from dailyData.
   if (!data) {
     const availableDates = Object.keys(dailyData).sort();
     const latestDate = availableDates[availableDates.length - 1];
+
     data = dailyData[latestDate];
   }
 
-  const currentPhase = overridePhase || data?.phase || 'Luteal';
-  const currentDay = overrideCycleDay ?? data?.cycleDay ?? 22;
-  const currentLength = overrideCycleLength ?? data?.cycleLength ?? 28;
-  const currentProgress = overrideProgress ?? data?.progress ?? Math.round((currentDay / currentLength) * 100);
-  const currentNextPeriod = overrideNextPeriod ?? data?.nextPeriod ?? 'Period in ~6 days';
+  // Don't render if there is no data
+  if (!data) {
+    return null;
+  }
 
-  const config = phaseConfig[currentPhase] || phaseConfig['Luteal'];
-  const badgeLabel = overrideBadge || config.badge;
+  const config =
+    phaseConfig[data.phase as keyof typeof phaseConfig];
 
   return (
     <View
@@ -102,11 +97,11 @@ export default function PhaseCard({
           </Text>
 
           <Text style={styles.phaseTitle}>
-            {currentPhase}
+            {data.phase}
           </Text>
 
           <Text style={styles.phaseSubtitle}>
-            Day {currentDay} of {currentLength}
+            Day {data.cycleDay} of {data.cycleLength}
           </Text>
         </View>
 
@@ -129,7 +124,7 @@ export default function PhaseCard({
               },
             ]}
           >
-            {badgeLabel}
+            {config.badge}
           </Text>
         </View>
       </View>
@@ -140,7 +135,7 @@ export default function PhaseCard({
           style={[
             styles.progressFill,
             {
-              width: `${currentProgress}%`,
+              width: `${data.progress}%`,
               backgroundColor: config.color,
             },
           ]}
@@ -149,7 +144,7 @@ export default function PhaseCard({
 
       {/* Helper text */}
       <Text style={styles.helperText}>
-        {currentNextPeriod}
+        {data.nextPeriod}
       </Text>
     </View>
   );

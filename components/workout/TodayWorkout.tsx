@@ -1,14 +1,11 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import { Pressable, Text, View, ActivityIndicator, Alert } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Palette, GlobalStyles } from '@/constants/Styles';
 import ExerciseDetailModal from './ExerciseDetailModal';
 import ActivityPickerModal from './ActivityPickerModal';
 import { styles } from './workoutStyles';
-import { aiService, AzukaDailyOutput } from '@/services/aiService';
-import { WorkoutListSkeleton } from '@/components/ui/Skeleton';
-import { ErrorCard } from '@/components/ui/StateFeedback';
 
 type Exercise = {
   id: string;
@@ -23,168 +20,69 @@ export type Activity = {
   id: string;
   name: string;
   icon: keyof typeof Ionicons.glyphMap;
+
   metric?: 'duration' | 'sets';
+
   durationMinutes?: number;
+
   sets?: number;
   reps?: number;
+
   intensity?: 'Easy' | 'Moderate' | 'Hard';
+
   caloriesBurned?: number;
+
   notes?: string;
 };
 
-const DEFAULT_EXERCISES: Exercise[] = [
+const exercises: Exercise[] = [
   {
-    id: 'bodyweight-squats',
-    name: 'Bodyweight Squats',
-    duration: '3 sets × 12',
+    id: 'cat-cow',
+    name: 'Cat-Cow Stretch',
+    duration: '3 mins',
     icon: 'body-outline',
-    reason: 'Builds lower-body capacity and stimulates growth hormone.',
+    reason: 'Supports mobility and gentle spinal movement.',
     description:
-      'A foundational strength movement designed to engage the quads, hamstrings, and glutes with zero joint impact.',
+      'A gentle mobility exercise that helps loosen the spine and prepare your body for movement without creating excessive fatigue.',
   },
   {
     id: 'glute-bridge',
     name: 'Glute Bridges',
     duration: '3 sets × 10',
     icon: 'fitness-outline',
-    reason: 'Builds lower-body stability with low neurological fatigue.',
+    reason: 'Builds lower-body strength with low impact.',
     description:
-      'Glute bridges activate the posterior chain while keeping overall strain low and supportive of current hormonal phase.',
+      'Glute bridges activate the glutes and posterior chain while keeping the overall movement low impact.',
   },
   {
-    id: 'plank-hold',
-    name: 'Plank Hold',
-    duration: '3 mins',
-    icon: 'shield-checkmark-outline',
-    reason: 'Develops core isometric endurance without excessive cortisol.',
-    description:
-      'Isometric abdominal bracing that enhances trunk stability while maintaining steady breathing.',
-  },
-  {
-    id: 'cat-cow',
-    name: 'Cat-Cow Mobility',
-    duration: '3 mins',
+    id: 'breathing',
+    name: 'Diaphragmatic Breathing',
+    duration: '5 mins',
     icon: 'leaf-outline',
-    reason: 'Supports spinal decompression and down-regulates nervous system.',
+    reason: 'Helps down-regulate the nervous system.',
     description:
-      'A gentle mobility flow that loosens the spine and facilitates recovery without metabolic fatigue.',
+      'Slow diaphragmatic breathing encourages controlled breathing and can be used as a recovery-focused exercise.',
   },
 ];
 
 export default function TodayWorkout() {
-  const [exercisesList, setExercisesList] = useState<Exercise[]>(DEFAULT_EXERCISES);
-  const [workoutMeta, setWorkoutMeta] = useState<{ infoTag: string; intensityTag: string }>({
-    infoTag: 'Adaptive Strength',
-    intensityTag: 'Moderate',
-  });
-  
-  // Loading, saving and error states
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [isLoggedSuccessfully, setIsLoggedSuccessfully] = useState(false);
-
   const [completed, setCompleted] = useState<Record<string, boolean>>({});
-  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
+
+  const [selectedExercise, setSelectedExercise] =
+    useState<Exercise | null>(null);
+
   const [exerciseModalVisible, setExerciseModalVisible] = useState(false);
+
   const [activityModalVisible, setActivityModalVisible] = useState(false);
+
   const [activities, setActivities] = useState<Activity[]>([]);
-
-  // Fetch adaptive training plan from FastAPI backend
-  const fetchAdaptiveWorkout = useCallback(async () => {
-    try {
-      setLoading(true);
-      setErrorMsg(null);
-      const plan: AzukaDailyOutput = await aiService.getLatestDailyPlan('default_user');
-      
-      if (plan?.workout?.[0]) {
-        const today = plan.workout[0];
-        setWorkoutMeta({
-          infoTag: today.info_tag || 'Adaptive Routine',
-          intensityTag: today.intensity_tag || 'Moderate',
-        });
-
-        if (today.activities && today.activities.length > 0) {
-          const mapped: Exercise[] = today.activities.map((act, index) => {
-            const dur = act.sets && act.reps
-              ? `${act.sets} sets × ${act.reps}`
-              : act.duration_mins
-              ? `${act.duration_mins} mins`
-              : '10 mins';
-            
-            let icon: keyof typeof Ionicons.glyphMap = 'fitness-outline';
-            if (act.type?.includes('mobility') || act.type?.includes('stretch')) icon = 'leaf-outline';
-            else if (act.type?.includes('endurance') || act.type?.includes('core')) icon = 'shield-checkmark-outline';
-            else if (act.type?.includes('strength')) icon = 'barbell-outline';
-
-            return {
-              id: `ex-${index}-${act.activity_name.toLowerCase().replace(/\s+/g, '-')}`,
-              name: act.activity_name,
-              duration: dur,
-              icon,
-              reason: `Bio-adapted for your current phase energy and recovery profile.`,
-              description: `${act.activity_name} is specifically prescribed to match your metabolic state without over-straining recovery.`,
-            };
-          });
-          setExercisesList(mapped);
-        }
-      }
-    } catch (err: any) {
-      console.warn('[TodayWorkout] Error fetching workout plan:', err);
-      setErrorMsg('Could not fetch live workout routine from server. Displaying offline preset.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchAdaptiveWorkout();
-  }, [fetchAdaptiveWorkout]);
 
   const completedCount = useMemo(
     () => Object.values(completed).filter(Boolean).length,
     [completed]
   );
 
-  const allCompleted = exercisesList.length > 0 && completedCount === exercisesList.length;
-
-  // Complete Workout action handler to trigger logWorkout back to MongoDB
-  const handleCompleteWorkout = async () => {
-    try {
-      setSaving(true);
-      const completedNames = exercisesList
-        .filter(ex => completed[ex.id])
-        .map(ex => ex.name);
-
-      const payload = {
-        completed_exercises: completedNames.length > 0 ? completedNames : exercisesList.map(e => e.name),
-        actual_activities: activities.map(a => ({
-          name: a.name,
-          sets: a.sets,
-          reps: a.reps,
-          durationMinutes: a.durationMinutes,
-          intensity: a.intensity,
-          caloriesBurned: a.caloriesBurned,
-        })),
-        duration_mins: 30,
-        calories_burned: 180 + completedNames.length * 20,
-        notes: `Completed adaptive workout on ${new Date().toLocaleDateString()}. Recorded ${completedNames.length}/${exercisesList.length} items.`,
-      };
-
-      const response = await aiService.logWorkout(payload, 'default_user');
-      setIsLoggedSuccessfully(true);
-      Alert.alert(
-        'Workout Completed!',
-        'Your workout data and bio-adaptive recovery adjustments have been saved to your MongoDB profile.',
-        [{ text: 'Awesome' }]
-      );
-    } catch (e: any) {
-      console.warn('[TodayWorkout] Failed to log workout:', e);
-      Alert.alert('Notice', 'Workout saved locally in offline cache.');
-    } finally {
-      setSaving(false);
-    }
-  };
+  const allCompleted = completedCount === exercises.length;
 
   const toggleExercise = (id: string) => {
     setCompleted(prev => ({
@@ -198,10 +96,13 @@ export default function TodayWorkout() {
       setCompleted({});
       return;
     }
+
     const next: Record<string, boolean> = {};
-    exercisesList.forEach(exercise => {
+
+    exercises.forEach(exercise => {
       next[exercise.id] = true;
     });
+
     setCompleted(next);
   };
 
@@ -220,9 +121,11 @@ export default function TodayWorkout() {
   const addActivities = (newActivities: Activity[]) => {
     setActivities(prev => {
       const existingIds = new Set(prev.map(activity => activity.id));
+
       const uniqueActivities = newActivities.filter(
         activity => !existingIds.has(activity.id)
       );
+
       return [...prev, ...uniqueActivities];
     });
   };
@@ -231,32 +134,17 @@ export default function TodayWorkout() {
     setActivities(prev => prev.filter(activity => activity.id !== id));
   };
 
-  if (loading) {
-    return (
-      <View style={{ marginTop: 8 }}>
-        <WorkoutListSkeleton />
-      </View>
-    );
-  }
-
   return (
     <>
-      {errorMsg && (
-        <ErrorCard
-          title="Workout Sync Notice"
-          message={errorMsg}
-          onRetry={fetchAdaptiveWorkout}
-        />
-      )}
-
-      {/* TODAY ADAPTIVE CARD */}
+      {/* TODAY CARD */}
       <View style={GlobalStyles.cardElevated}>
         {/* HEADER */}
         <View style={styles.exerciseHeader}>
           <View style={styles.exerciseInfo}>
-            <Text style={styles.cardTitle}>Today's Prescribed Plan</Text>
+            <Text style={styles.cardTitle}>Today's exercises</Text>
+
             <Text style={styles.exerciseHint}>
-              {workoutMeta.infoTag} • {workoutMeta.intensityTag} ({completedCount}/{exercisesList.length} completed)
+              {completedCount}/{exercises.length} completed
             </Text>
           </View>
 
@@ -293,8 +181,8 @@ export default function TodayWorkout() {
           </Pressable>
         </View>
 
-        {/* EXERCISES LIST */}
-        {exercisesList.map((exercise, index) => {
+        {/* EXERCISES */}
+        {exercises.map((exercise, index) => {
           const isCompleted = !!completed[exercise.id];
 
           return (
@@ -304,7 +192,7 @@ export default function TodayWorkout() {
               style={[
                 styles.exerciseRow,
                 isCompleted && styles.exerciseRowCompleted,
-                index === exercisesList.length - 1 && styles.exerciseRowLast,
+                index === exercises.length - 1 && styles.exerciseRowLast,
               ]}
             >
               <View style={styles.exerciseLeft}>
@@ -371,42 +259,6 @@ export default function TodayWorkout() {
             </Pressable>
           );
         })}
-
-        {/* COMPLETE WORKOUT ACTION BUTTON */}
-        <Pressable
-          onPress={handleCompleteWorkout}
-          disabled={saving}
-          style={({ pressed }) => [
-            GlobalStyles.btnPrimary,
-            {
-              backgroundColor: allCompleted || isLoggedSuccessfully ? Palette.forestGreen : Palette.oceanBlue,
-              marginTop: 18,
-              marginBottom: 4,
-              flexDirection: 'row',
-              gap: 8,
-              opacity: pressed || saving ? 0.88 : 1,
-            },
-          ]}
-        >
-          {saving ? (
-            <ActivityIndicator size="small" color={Palette.textWhite} />
-          ) : (
-            <>
-              <Ionicons
-                name={allCompleted || isLoggedSuccessfully ? 'checkmark-done-circle' : 'play-circle-outline'}
-                size={20}
-                color={Palette.textWhite}
-              />
-              <Text style={GlobalStyles.btnPrimaryText}>
-                {isLoggedSuccessfully
-                  ? 'Workout Saved to Profile'
-                  : allCompleted
-                  ? 'Complete & Save Workout'
-                  : 'Save Workout Progress'}
-              </Text>
-            </>
-          )}
-        </Pressable>
       </View>
 
       {/* ACTUAL ACTIVITY */}
@@ -424,7 +276,7 @@ export default function TodayWorkout() {
             <Text style={styles.cardTitle}>What did you actually do?</Text>
 
             <Text style={styles.exerciseHint}>
-              Recorded activities sync to your biometric profile.
+              You can add more than one activity.
             </Text>
           </View>
         </View>
@@ -483,8 +335,8 @@ export default function TodayWorkout() {
         </Pressable>
       </View>
 
-      {/* STATUS BANNER */}
-      {isLoggedSuccessfully && (
+      {/* STATUS */}
+      {allCompleted && (
         <View style={styles.completedBanner}>
           <Ionicons
             name="checkmark-circle"
@@ -494,11 +346,11 @@ export default function TodayWorkout() {
 
           <View style={styles.completedBannerText}>
             <Text style={styles.completedBannerTitle}>
-              Today's workout recorded
+              Today's workout complete
             </Text>
 
             <Text style={styles.completedBannerSubtitle}>
-              Progress and recovery adaptation metrics have been persisted into your profile.
+              Nice work. Your activity has been recorded.
             </Text>
           </View>
         </View>
