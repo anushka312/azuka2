@@ -3,38 +3,44 @@ import { Text, View } from 'react-native';
 
 import { GlobalStyles, Palette } from '@/constants/Styles';
 import { dailyData } from './data';
-
 import { styles } from './styles';
 
 interface PhaseCardProps {
   selectedDate?: string;
+  phase?: string;
+  cycleDay?: number;
+  cycleLength?: number;
+  progress?: number;
+  nextPeriod?: string;
+  badge?: string;
 }
 
-const phaseConfig = {
+const phaseConfig: Record<string, { color: string; backgroundColor: string; badge: string }> = {
   Menstrual: {
     color: Palette.crimson,
     backgroundColor: Palette.surfaceCrimsonMuted,
     badge: 'Recovery',
   },
-
   Follicular: {
     color: Palette.forestGreen,
     backgroundColor: Palette.surfaceGreenMuted,
     badge: 'Build',
   },
-
   Ovulation: {
     color: Palette.marigold,
     backgroundColor: Palette.surfaceMarigoldMuted,
     badge: 'Peak',
   },
-
+  Ovulatory: {
+    color: Palette.marigold,
+    backgroundColor: Palette.surfaceMarigoldMuted,
+    badge: 'Peak',
+  },
   Luteal: {
     color: Palette.oceanBlue,
     backgroundColor: Palette.surfaceBlueMuted,
     badge: 'Balance',
   },
-
   'Late Luteal': {
     color: Palette.orange,
     backgroundColor: Palette.surfaceOrangeMuted,
@@ -44,40 +50,39 @@ const phaseConfig = {
 
 const getTodayDate = () => {
   const today = new Date();
-
   const year = today.getFullYear();
   const month = String(today.getMonth() + 1).padStart(2, '0');
   const day = String(today.getDate()).padStart(2, '0');
-
   return `${year}-${month}-${day}`;
 };
 
 export default function PhaseCard({
   selectedDate,
+  phase: overridePhase,
+  cycleDay: overrideCycleDay,
+  cycleLength: overrideCycleLength,
+  progress: overrideProgress,
+  nextPeriod: overrideNextPeriod,
+  badge: overrideBadge,
 }: PhaseCardProps) {
-  // Use selected date if provided, otherwise use today's date
   const today = getTodayDate();
   const dateToUse = selectedDate ?? today;
 
-  // Get data for selected/today's date
   let data = dailyData[dateToUse];
-
-  // If today's data doesn't exist yet, use the latest
-  // available data from dailyData.
   if (!data) {
     const availableDates = Object.keys(dailyData).sort();
     const latestDate = availableDates[availableDates.length - 1];
-
     data = dailyData[latestDate];
   }
 
-  // Don't render if there is no data
-  if (!data) {
-    return null;
-  }
+  const currentPhase = overridePhase || data?.phase || 'Luteal';
+  const currentDay = overrideCycleDay ?? data?.cycleDay ?? 22;
+  const currentLength = overrideCycleLength ?? data?.cycleLength ?? 28;
+  const currentProgress = overrideProgress ?? data?.progress ?? Math.round((currentDay / currentLength) * 100);
+  const currentNextPeriod = overrideNextPeriod ?? data?.nextPeriod ?? 'Period in ~6 days';
 
-  const config =
-    phaseConfig[data.phase as keyof typeof phaseConfig];
+  const config = phaseConfig[currentPhase] || phaseConfig['Luteal'];
+  const badgeLabel = overrideBadge || config.badge;
 
   return (
     <View
@@ -97,11 +102,11 @@ export default function PhaseCard({
           </Text>
 
           <Text style={styles.phaseTitle}>
-            {data.phase}
+            {currentPhase}
           </Text>
 
           <Text style={styles.phaseSubtitle}>
-            Day {data.cycleDay} of {data.cycleLength}
+            Day {currentDay} of {currentLength}
           </Text>
         </View>
 
@@ -124,7 +129,7 @@ export default function PhaseCard({
               },
             ]}
           >
-            {config.badge}
+            {badgeLabel}
           </Text>
         </View>
       </View>
@@ -135,7 +140,7 @@ export default function PhaseCard({
           style={[
             styles.progressFill,
             {
-              width: `${data.progress}%`,
+              width: `${currentProgress}%`,
               backgroundColor: config.color,
             },
           ]}
@@ -144,7 +149,7 @@ export default function PhaseCard({
 
       {/* Helper text */}
       <Text style={styles.helperText}>
-        {data.nextPeriod}
+        {currentNextPeriod}
       </Text>
     </View>
   );
