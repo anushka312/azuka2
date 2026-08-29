@@ -1,17 +1,18 @@
 from fastapi import APIRouter, HTTPException
 
 from app.controllers.daily_score_controller import (
-get_user_daily_scores
+    get_user_daily_scores,
+    get_user_recent_scores
 )
 
 router = APIRouter(
-prefix="/api/daily-scores",
-tags=["Daily Scores"]
+    prefix="/api/daily-scores",
+    tags=["Daily Scores"]
 )
+
 
 @router.get("/{user_id}")
 def get_daily_scores(user_id: str):
-
 
     try:
         return get_user_daily_scores(
@@ -24,3 +25,21 @@ def get_daily_scores(user_id: str):
             detail=str(e)
         )
 
+
+@router.get("/{user_id}/recent")
+def get_recent_scores(
+    user_id: str,
+    limit: int = 7
+):
+
+    try:
+        return get_user_recent_scores(
+            user_id,
+            limit
+        )
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=str(e)
+        )
