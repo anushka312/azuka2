@@ -1,23 +1,30 @@
+# app/database/daily_score_repository.py
+
 from bson import ObjectId
 
 from app.database.mongodb import db
 
-
 daily_scores_collection = db["daily_scores"]
 
+async def create_daily_score(
+score_data: dict
+):
 
-def create_daily_score(score_data: dict):
 
-    result = daily_scores_collection.insert_one(
+    result = await daily_scores_collection.insert_one(
         score_data
     )
 
     return str(result.inserted_id)
 
 
-def get_daily_score(user_id: str, date):
+async def get_daily_score(
+user_id: str,
+date: str
+):
 
-    return daily_scores_collection.find_one(
+
+    return await daily_scores_collection.find_one(
         {
             "user_id": ObjectId(user_id),
             "date": date
@@ -25,17 +32,22 @@ def get_daily_score(user_id: str, date):
     )
 
 
-def get_recent_scores(
-    user_id: str,
-    limit: int = 7
+async def get_recent_scores(
+user_id: str,
+limit: int = 7
 ):
 
-    return list(
+
+    return await list(
         daily_scores_collection.find(
             {
                 "user_id": ObjectId(user_id)
             }
         )
-        .sort("date", -1)
+        .sort(
+            "date",
+            -1
+        )
         .limit(limit)
     )
+

@@ -1,26 +1,18 @@
+# app/database/daily_intake_repository.py
+
 from bson import ObjectId
 
 from app.database.mongodb import db
 
-
 daily_intake_collection = db["daily_intake"]
 
-
-def create_daily_intake(intake_data: dict):
-
-    result = daily_intake_collection.insert_one(
-        intake_data
-    )
-
-    return str(result.inserted_id)
-
-
-def get_daily_intake(
-    user_id: str,
-    date
+async def get_daily_intake(
+user_id: str,
+date: str
 ):
 
-    return daily_intake_collection.find_one(
+
+    return await daily_intake_collection.find_one(
         {
             "user_id": ObjectId(user_id),
             "date": date
@@ -28,13 +20,26 @@ def get_daily_intake(
     )
 
 
-def update_daily_intake(
-    user_id: str,
-    date,
-    update_data: dict
+async def create_daily_intake(
+intake_data: dict
 ):
 
-    result = daily_intake_collection.update_one(
+
+    result = await daily_intake_collection.insert_one(
+        intake_data
+    )
+
+    return str(result.inserted_id)
+
+
+async def update_daily_intake(
+user_id: str,
+date: str,
+update_data: dict
+):
+
+
+    return await daily_intake_collection.update_one(
         {
             "user_id": ObjectId(user_id),
             "date": date
@@ -44,4 +49,3 @@ def update_daily_intake(
         }
     )
 
-    return result.modified_count

@@ -1,46 +1,53 @@
+# app/database/recipe_repository.py
+
 from bson import ObjectId
 
 from app.database.mongodb import db
 
-
 recipes_collection = db["recipes"]
 
+async def create_daily_recipes(
+recipe_data: dict
+):
 
-def get_recipe_by_id(recipe_id: str):
 
-    return recipes_collection.find_one(
+    result = await recipes_collection.insert_one(
+        recipe_data
+    )
+
+    return str(result.inserted_id)
+
+
+async def get_todays_recipes(
+user_id: str,
+date: str
+):
+
+
+    return await recipes_collection.find_one(
         {
-            "_id": ObjectId(recipe_id)
+            "user_id": ObjectId(user_id),
+            "date": date
         }
     )
 
 
-def get_recipes_by_ids(recipe_ids: list[str]):
+async def update_daily_recipes(
+user_id: str,
+date: str,
+recipes: list
+):
 
-    object_ids = [
-        ObjectId(recipe_id)
-        for recipe_id in recipe_ids
-    ]
 
-    return list(
-        recipes_collection.find(
-            {
-                "_id": {
-                    "$in": object_ids
-                }
+    return await recipes_collection.update_one(
+        {
+            "user_id": ObjectId(user_id),
+            "date": date
+        },
+        {
+            "$set": {
+                "recipes": recipes
             }
-        )
+        }
     )
 
-
-def get_recipes_by_tags(tags: list[str]):
-
-    return list(
-        recipes_collection.find(
-            {
-                "tags": {
-                    "$in": tags
-                }
-            }
-        )
-    )

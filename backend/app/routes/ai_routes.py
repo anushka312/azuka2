@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File, status
-from backend.app.controllers.ai_controller import AIController
+from app.controllers.ai_controller import AIController
 from ai.schemas.input import GeneralState, UserState
 from ai.schemas.output import AzukaDailyOutput, FoodVisionOutput
 
