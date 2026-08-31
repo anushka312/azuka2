@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+
 import { Palette } from '@/constants/Styles';
 import { Activity } from './TodayWorkout';
 import { styles } from './workoutStyles';
@@ -32,6 +33,10 @@ type ActivityOption = {
   caloriesPerMinute: number;
 };
 
+/*
+ * These are the activities available in the picker.
+ * They do NOT need to be stored in MongoDB.
+ */
 const activityOptions: ActivityOption[] = [
   {
     id: 'walking',
@@ -116,12 +121,8 @@ const DEFAULT_SETS = 3;
 const DEFAULT_REPS = 10;
 const DEFAULT_INTENSITY: Intensity = 'Moderate';
 
-// Reps below this are treated as heavy/near-maximal effort (higher intensity),
-// reps above this are treated as lighter, endurance-style work (lower intensity).
 const HARD_REPS_THRESHOLD = 5;
 const MODERATE_REPS_THRESHOLD = 12;
-// A high set count on top of a given rep range is treated as extra fatigue,
-// which bumps the derived intensity up one notch.
 const HIGH_SET_COUNT = 5;
 
 export default function ActivityPickerModal({
@@ -136,14 +137,17 @@ export default function ActivityPickerModal({
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const sheetY = useRef(new Animated.Value(600)).current;
 
-  // Tracks whether the modal was already open on the previous render, so the
-  // "load activities from props" effect only runs on the closed -> open
-  // transition instead of every time the `selectedActivities` prop changes.
+  /*
+   * Used to detect the closed -> open transition.
+   *
+   * This prevents parent re-renders from overwriting values
+   * the user is currently typing into the modal.
+   */
   const wasVisible = useRef(false);
 
-  // --------------------------------------------------
+  // ============================================================
   // OPEN MODAL
-  // --------------------------------------------------
+  // ============================================================
 
   useEffect(() => {
     if (!visible) {
@@ -151,11 +155,6 @@ export default function ActivityPickerModal({
       return;
     }
 
-    // Only reseed local state when the modal is actually being opened.
-    // Previously this effect also re-ran whenever `selectedActivities`
-    // changed identity (e.g. because the parent re-rendered for an
-    // unrelated reason while the sheet was already open), which wiped out
-    // whatever the user had just typed into duration/sets/reps fields.
     if (wasVisible.current) {
       return;
     }
@@ -163,7 +162,7 @@ export default function ActivityPickerModal({
     wasVisible.current = true;
 
     setSelected(
-      selectedActivities.map(activity => ({
+      selectedActivities.map((activity) => ({
         ...activity,
       }))
     );
@@ -186,32 +185,33 @@ export default function ActivityPickerModal({
         useNativeDriver: true,
       }).start();
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
-  // --------------------------------------------------
-  // FIND ACTIVITY
-  // --------------------------------------------------
+  // ============================================================
+  // FIND ACTIVITY OPTION
+  // ============================================================
 
-  const getActivityOption = (id: string): ActivityOption | undefined => {
-    return activityOptions.find(activity => activity.id === id);
+  const getActivityOption = (
+    id: string
+  ): ActivityOption | undefined => {
+    return activityOptions.find(
+      (activity) => activity.id === id
+    );
   };
 
-  // --------------------------------------------------
+  // ============================================================
   // CHECK IF SELECTED
-  // --------------------------------------------------
+  // ============================================================
 
   const isSelected = (id: string) => {
-    return selected.some(activity => activity.id === id);
+    return selected.some(
+      (activity) => activity.id === id
+    );
   };
 
-  // --------------------------------------------------
-  // DERIVE INTENSITY FROM SETS + REPS
-  // --------------------------------------------------
-  // Lower rep ranges generally mean a heavier load (higher intensity),
-  // higher rep ranges mean a lighter, more endurance-focused load (lower
-  // intensity). A high number of sets on top of that is treated as extra
-  // fatigue and bumps the result up one notch.
+  // ============================================================
+  // DERIVE INTENSITY
+  // ============================================================
 
   const deriveIntensityFromSets = (
     sets: number,
@@ -228,16 +228,19 @@ export default function ActivityPickerModal({
     }
 
     if (sets >= HIGH_SET_COUNT) {
-      if (intensity === 'Easy') intensity = 'Moderate';
-      else if (intensity === 'Moderate') intensity = 'Hard';
+      if (intensity === 'Easy') {
+        intensity = 'Moderate';
+      } else if (intensity === 'Moderate') {
+        intensity = 'Hard';
+      }
     }
 
     return intensity;
   };
 
-  // --------------------------------------------------
-  // CALCULATE ESTIMATED CALORIES
-  // --------------------------------------------------
+  // ============================================================
+  // CALCULATE CALORIES
+  // ============================================================
 
   const calculateCalories = (
     activity: Activity,
@@ -245,14 +248,20 @@ export default function ActivityPickerModal({
   ) => {
     const option = getActivityOption(activity.id);
 
+    /*
+     * Custom activities don't have a known calorie rate.
+     * Keep whatever value they already have.
+     */
     if (!option) {
       return activity.caloriesBurned ?? 0;
     }
 
     const multiplier = INTENSITY_MULTIPLIER[intensity];
 
+    // Duration based activity
     if (option.metric === 'duration') {
-      const duration = activity.durationMinutes ?? DEFAULT_DURATION;
+      const duration =
+        activity.durationMinutes ?? DEFAULT_DURATION;
 
       return Math.round(
         duration *
@@ -261,7 +270,13 @@ export default function ActivityPickerModal({
       );
     }
 
+    // Sets based activity
     const sets = activity.sets ?? DEFAULT_SETS;
+
+    /*
+     * Approximation:
+     * 1 set ~= 3 minutes of activity.
+     */
     const estimatedMinutes = sets * 3;
 
     return Math.round(
@@ -271,9 +286,9 @@ export default function ActivityPickerModal({
     );
   };
 
-  // --------------------------------------------------
-  // CREATE ACTIVITY WITH DEFAULT VALUES
-  // --------------------------------------------------
+  // ============================================================
+  // CREATE ACTIVITY
+  // ============================================================
 
   const createActivity = (
     option: ActivityOption
@@ -294,7 +309,10 @@ export default function ActivityPickerModal({
 
       return {
         ...activity,
-        caloriesBurned: calculateCalories(activity, activity.intensity),
+        caloriesBurned: calculateCalories(
+          activity,
+          activity.intensity
+        ),
       };
     }
 
@@ -309,25 +327,30 @@ export default function ActivityPickerModal({
 
     return {
       ...activity,
-      caloriesBurned: calculateCalories(activity),
+      caloriesBurned: calculateCalories(
+        activity,
+        DEFAULT_INTENSITY
+      ),
     };
   };
 
-  // --------------------------------------------------
+  // ============================================================
   // SELECT / DESELECT ACTIVITY
-  // --------------------------------------------------
+  // ============================================================
 
   const toggleActivity = (
     option: ActivityOption
   ) => {
-    setSelected(prev => {
+    setSelected((prev) => {
       const alreadySelected = prev.some(
-        activity => activity.id === option.id
+        (activity) =>
+          activity.id === option.id
       );
 
       if (alreadySelected) {
         return prev.filter(
-          activity => activity.id !== option.id
+          (activity) =>
+            activity.id !== option.id
         );
       }
 
@@ -338,16 +361,16 @@ export default function ActivityPickerModal({
     });
   };
 
-  // --------------------------------------------------
+  // ============================================================
   // UPDATE ACTIVITY
-  // --------------------------------------------------
+  // ============================================================
 
   const updateActivity = (
     id: string,
     updates: Partial<Activity>
   ) => {
-    setSelected(prev =>
-      prev.map(activity => {
+    setSelected((prev) =>
+      prev.map((activity) => {
         if (activity.id !== id) {
           return activity;
         }
@@ -369,26 +392,29 @@ export default function ActivityPickerModal({
     );
   };
 
-  // --------------------------------------------------
+  // ============================================================
   // UPDATE DURATION
-  // --------------------------------------------------
+  // ============================================================
 
-  const updateDuration = (activity: Activity, value: string) => {
-  // Remove non-numeric characters
-  const cleaned = value.replace(/\D/g, '');
+  const updateDuration = (
+    activity: Activity,
+    value: string
+  ) => {
+    const cleaned = value.replace(/\D/g, '');
 
-  // Convert to number or set to undefined if empty
-  const number = cleaned === '' ? undefined : Number(cleaned);
+    const number =
+      cleaned === ''
+        ? undefined
+        : Number(cleaned);
 
-  updateActivity(activity.id, {
-    durationMinutes: number,
-  });
-
+    updateActivity(activity.id, {
+      durationMinutes: number,
+    });
   };
 
-  // --------------------------------------------------
+  // ============================================================
   // UPDATE SETS
-  // --------------------------------------------------
+  // ============================================================
 
   const updateSets = (
     activity: Activity,
@@ -399,23 +425,30 @@ export default function ActivityPickerModal({
       ''
     );
 
-    const number = cleaned === '' ? undefined : parseInt(cleaned, 10);
-    const reps = activity.reps ?? DEFAULT_REPS;
+    const number =
+      cleaned === ''
+        ? undefined
+        : parseInt(cleaned, 10);
+
+    const reps =
+      activity.reps ?? DEFAULT_REPS;
 
     updateActivity(activity.id, {
       sets: number,
-      // Re-derive intensity any time sets changes, using the freshest
-      // sets value together with whatever reps is currently set.
+
       intensity:
         number !== undefined
-          ? deriveIntensityFromSets(number, reps)
+          ? deriveIntensityFromSets(
+              number,
+              reps
+            )
           : activity.intensity,
     });
   };
 
-  // --------------------------------------------------
+  // ============================================================
   // UPDATE REPS
-  // --------------------------------------------------
+  // ============================================================
 
   const updateReps = (
     activity: Activity,
@@ -426,23 +459,30 @@ export default function ActivityPickerModal({
       ''
     );
 
-    const number = cleaned === '' ? undefined : parseInt(cleaned, 10);
-    const sets = activity.sets ?? DEFAULT_SETS;
+    const number =
+      cleaned === ''
+        ? undefined
+        : parseInt(cleaned, 10);
+
+    const sets =
+      activity.sets ?? DEFAULT_SETS;
 
     updateActivity(activity.id, {
       reps: number,
-      // Re-derive intensity any time reps changes, using the freshest
-      // reps value together with whatever sets is currently set.
+
       intensity:
         number !== undefined
-          ? deriveIntensityFromSets(sets, number)
+          ? deriveIntensityFromSets(
+              sets,
+              number
+            )
           : activity.intensity,
     });
   };
 
-  // --------------------------------------------------
+  // ============================================================
   // UPDATE INTENSITY
-  // --------------------------------------------------
+  // ============================================================
 
   const updateIntensity = (
     activity: Activity,
@@ -453,26 +493,29 @@ export default function ActivityPickerModal({
     });
   };
 
-  // --------------------------------------------------
+  // ============================================================
   // REMOVE ACTIVITY
-  // --------------------------------------------------
+  // ============================================================
 
   const removeActivity = (id: string) => {
-    setSelected(prev =>
+    setSelected((prev) =>
       prev.filter(
-        activity => activity.id !== id
+        (activity) =>
+          activity.id !== id
       )
     );
   };
 
-  // --------------------------------------------------
+  // ============================================================
   // ADD CUSTOM ACTIVITY
-  // --------------------------------------------------
+  // ============================================================
 
   const addCustomActivity = () => {
     const name = customActivity.trim();
 
-    if (!name) return;
+    if (!name) {
+      return;
+    }
 
     const custom: Activity = {
       id: `custom-${Date.now()}`,
@@ -484,7 +527,7 @@ export default function ActivityPickerModal({
       caloriesBurned: 0,
     };
 
-    setSelected(prev => [
+    setSelected((prev) => [
       ...prev,
       custom,
     ]);
@@ -492,32 +535,85 @@ export default function ActivityPickerModal({
     setCustomActivity('');
   };
 
-  // --------------------------------------------------
+  // ============================================================
   // SAVE
-  // --------------------------------------------------
+  // ============================================================
 
   const handleSave = () => {
-    const finalized = selected.map(item => {
-      if (item.metric === 'sets') {
+    const finalized: Activity[] =
+      selected.map((item) => {
+        if (item.metric === 'sets') {
+          const sets =
+            item.sets ?? DEFAULT_SETS;
+
+          const reps =
+            item.reps ?? DEFAULT_REPS;
+
+          const intensity =
+            item.intensity ??
+            deriveIntensityFromSets(
+              sets,
+              reps
+            );
+
+          return {
+            ...item,
+            sets,
+            reps,
+            intensity,
+            caloriesBurned:
+              calculateCalories(
+                {
+                  ...item,
+                  sets,
+                  reps,
+                  intensity,
+                },
+                intensity
+              ),
+          };
+        }
+
+        const durationMinutes =
+          item.durationMinutes ??
+          DEFAULT_DURATION;
+
+        const intensity =
+          item.intensity ??
+          DEFAULT_INTENSITY;
+
         return {
           ...item,
-          sets: item.sets ?? DEFAULT_SETS,
-          reps: item.reps ?? DEFAULT_REPS,
+          durationMinutes,
+          intensity,
+          caloriesBurned:
+            calculateCalories(
+              {
+                ...item,
+                durationMinutes,
+                intensity,
+              },
+              intensity
+            ),
         };
-      }
+      });
 
-      return {
-        ...item,
-        durationMinutes: item.durationMinutes ?? DEFAULT_DURATION,
-      };
-    });
+    /*
+     * IMPORTANT:
+     *
+     * The modal does not call the backend directly.
+     * It passes the finalized activities to TodayWorkout.
+     *
+     * TodayWorkout can then send them to FastAPI/MongoDB.
+     */
     onSave(finalized);
+
     onClose();
   };
 
-  // --------------------------------------------------
-  // RENDER DETAILS
-  // --------------------------------------------------
+  // ============================================================
+  // RENDER ACTIVITY DETAILS
+  // ============================================================
 
   const renderActivityDetails = (
     activity: Activity
@@ -544,9 +640,9 @@ export default function ActivityPickerModal({
 
     return (
       <View style={styles.activityDetails}>
-        {/* ------------------------------------------
+        {/* =====================================================
             DURATION
-        ------------------------------------------ */}
+        ====================================================== */}
 
         {metric === 'duration' && (
           <View style={styles.detailRow}>
@@ -561,20 +657,27 @@ export default function ActivityPickerModal({
             >
               <TextInput
                 value={
-                  activity.durationMinutes !== undefined
-                    ? String(activity.durationMinutes)
+                  activity.durationMinutes !==
+                  undefined
+                    ? String(
+                        activity.durationMinutes
+                      )
                     : ''
                 }
-                onChangeText={value =>
+                onChangeText={(value) =>
                   updateDuration(
                     activity,
                     value
                   )
                 }
                 keyboardType="number-pad"
-                style={
-                  [styles.numberInput, {color: Palette.textPrimary}]
-                }
+                style={[
+                  styles.numberInput,
+                  {
+                    color:
+                      Palette.textPrimary,
+                  },
+                ]}
                 maxLength={3}
                 selectTextOnFocus
               />
@@ -588,17 +691,21 @@ export default function ActivityPickerModal({
           </View>
         )}
 
-        {/* ------------------------------------------
+        {/* =====================================================
             SETS + REPS
-        ------------------------------------------ */}
+        ====================================================== */}
 
         {metric === 'sets' && (
           <View style={styles.setsRow}>
             <View
-              style={styles.setInputGroup}
+              style={
+                styles.setInputGroup
+              }
             >
               <Text
-                style={styles.detailLabel}
+                style={
+                  styles.detailLabel
+                }
               >
                 Sets
               </Text>
@@ -610,11 +717,12 @@ export default function ActivityPickerModal({
               >
                 <TextInput
                   value={
-                    activity.sets !== undefined
+                    activity.sets !==
+                    undefined
                       ? String(activity.sets)
                       : ''
                   }
-                  onChangeText={value =>
+                  onChangeText={(value) =>
                     updateSets(
                       activity,
                       value
@@ -631,10 +739,14 @@ export default function ActivityPickerModal({
             </View>
 
             <View
-              style={styles.setInputGroup}
+              style={
+                styles.setInputGroup
+              }
             >
               <Text
-                style={styles.detailLabel}
+                style={
+                  styles.detailLabel
+                }
               >
                 Reps
               </Text>
@@ -646,11 +758,12 @@ export default function ActivityPickerModal({
               >
                 <TextInput
                   value={
-                    activity.reps !== undefined
+                    activity.reps !==
+                    undefined
                       ? String(activity.reps)
                       : ''
                   }
-                  onChangeText={value =>
+                  onChangeText={(value) =>
                     updateReps(
                       activity,
                       value
@@ -668,21 +781,29 @@ export default function ActivityPickerModal({
           </View>
         )}
 
-        {/* ------------------------------------------
+        {/* =====================================================
             INTENSITY
-        ------------------------------------------ */}
+        ====================================================== */}
 
         <View
-          style={styles.intensitySection}
+          style={
+            styles.intensitySection
+          }
         >
-          <Text style={styles.detailLabel}>
+          <Text
+            style={
+              styles.detailLabel
+            }
+          >
             {metric === 'sets'
               ? 'Intensity (auto)'
               : 'Intensity'}
           </Text>
 
           <View
-            style={styles.intensityRow}
+            style={
+              styles.intensityRow
+            }
           >
             {(
               [
@@ -690,7 +811,7 @@ export default function ActivityPickerModal({
                 'Moderate',
                 'Hard',
               ] as Intensity[]
-            ).map(level => {
+            ).map((level) => {
               const active =
                 intensity === level;
 
@@ -724,15 +845,19 @@ export default function ActivityPickerModal({
           </View>
         </View>
 
-        {/* ------------------------------------------
+        {/* =====================================================
             CALORIES
-        ------------------------------------------ */}
+        ====================================================== */}
 
         <View
-          style={styles.caloriesRow}
+          style={
+            styles.caloriesRow
+          }
         >
           <View
-            style={styles.caloriesIcon}
+            style={
+              styles.caloriesIcon
+            }
           >
             <Ionicons
               name="flame-outline"
@@ -741,7 +866,9 @@ export default function ActivityPickerModal({
             />
           </View>
 
-          <View style={{ flex: 1 }}>
+          <View
+            style={{ flex: 1 }}
+          >
             <Text
               style={
                 styles.caloriesLabel
@@ -755,8 +882,8 @@ export default function ActivityPickerModal({
                 styles.caloriesSubtext
               }
             >
-              Approximate based on activity
-              and intensity
+              Approximate based on
+              activity and intensity
             </Text>
           </View>
 
@@ -772,9 +899,9 @@ export default function ActivityPickerModal({
     );
   };
 
-  // --------------------------------------------------
+  // ============================================================
   // UI
-  // --------------------------------------------------
+  // ============================================================
 
   return (
     <Modal
@@ -801,7 +928,9 @@ export default function ActivityPickerModal({
         {/* TAP OUTSIDE TO CLOSE */}
 
         <Pressable
-          style={styles.modalTouchArea}
+          style={
+            styles.modalTouchArea
+          }
           onPress={onClose}
         />
 
@@ -822,17 +951,23 @@ export default function ActivityPickerModal({
           {/* HANDLE */}
 
           <View
-            style={styles.modalHandle}
+            style={
+              styles.modalHandle
+            }
           />
 
           {/* HEADER */}
 
           <View
-            style={styles.modalHeader}
+            style={
+              styles.modalHeader
+            }
           >
             <View style={{ flex: 1 }}>
               <Text
-                style={styles.modalTitle}
+                style={
+                  styles.modalTitle
+                }
               >
                 Add activities
               </Text>
@@ -842,7 +977,8 @@ export default function ActivityPickerModal({
                   styles.modalSubtitle
                 }
               >
-                Log what you did and how much.
+                Log what you did and how
+                much.
               </Text>
             </View>
 
@@ -871,9 +1007,9 @@ export default function ActivityPickerModal({
               paddingBottom: 20,
             }}
           >
-            {/* ==========================================
+            {/* =================================================
                 ACTIVITY SELECTION
-            ========================================== */}
+            ================================================== */}
 
             <View
               style={
@@ -881,7 +1017,7 @@ export default function ActivityPickerModal({
               }
             >
               {activityOptions.map(
-                option => {
+                (option) => {
                   const active =
                     isSelected(
                       option.id
@@ -946,9 +1082,9 @@ export default function ActivityPickerModal({
               )}
             </View>
 
-            {/* ==========================================
+            {/* =================================================
                 SELECTED ACTIVITY DETAILS
-            ========================================== */}
+            ================================================== */}
 
             {selected.length > 0 && (
               <View
@@ -965,7 +1101,7 @@ export default function ActivityPickerModal({
                 </Text>
 
                 {selected.map(
-                  activity => (
+                  (activity) => (
                     <View
                       key={activity.id}
                       style={
@@ -1038,9 +1174,9 @@ export default function ActivityPickerModal({
               </View>
             )}
 
-            {/* ==========================================
+            {/* =================================================
                 CUSTOM ACTIVITY
-            ========================================== */}
+            ================================================== */}
 
             <View
               style={
@@ -1056,9 +1192,7 @@ export default function ActivityPickerModal({
               </Text>
 
               <TextInput
-                value={
-                  customActivity
-                }
+                value={customActivity}
                 onChangeText={
                   setCustomActivity
                 }
@@ -1108,9 +1242,9 @@ export default function ActivityPickerModal({
             </View>
           </ScrollView>
 
-          {/* ==========================================
+          {/* ===================================================
               ACTION BUTTONS
-          ========================================== */}
+          ==================================================== */}
 
           <View
             style={

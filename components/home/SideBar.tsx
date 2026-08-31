@@ -34,7 +34,7 @@ const MENU_ITEMS: MenuItem[] = [
   { id: 'fuel', label: 'Fuel & Nutrition', icon: 'nutrition-outline', route: '/(tabs)/fuel' },
   { id: 'workout', label: 'Adaptive Workouts', icon: 'fitness-outline', route: '/(tabs)/workout' },
   { id: 'notifications', label: 'Notifications', icon: 'notifications-outline', route: 'notifications', badge: 'New' },
-  { id: 'settings', label: 'Settings', icon: 'settings-outline', route: 'settings' },
+  { id: 'settings', label: 'Settings', icon: 'settings-outline', route: '/settings' },
 ];
 
 export function Sidebar({ visible, slideAnim, onClose, sidebarWidth }: Props) {
@@ -43,12 +43,9 @@ export function Sidebar({ visible, slideAnim, onClose, sidebarWidth }: Props) {
 
   if (!visible) return null;
 
-  const handleNavigate = (route: string) => {
+const handleNavigate = (route: string) => {
+    router.push(route as any);
     onClose();
-    // Allow animation to clean up before triggering navigation
-    setTimeout(() => {
-      router.push(route as any);
-    }, 200);
   };
 
   const handleLogout = () => {

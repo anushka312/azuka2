@@ -1,138 +1,201 @@
 import React from 'react';
-import { Text, View, StyleSheet } from 'react-native';
+
+import { View, Text, StyleSheet } from 'react-native';
+
 import { GlobalStyles, Palette } from '@/constants/Styles';
-
-// Helper to generate the next 7 rolling dates dynamically with recommended exercises
-const getUpcomingWeek = () => {
-  const daysList = [];
-  const phaseMap = [
-    { 
-      phase: 'Luteal', 
-      intensity: 'Light Flow', 
-      color: Palette.orange, 
-      duration: 20, 
-      status: 'Adapted due to fatigue',
-      exercises: ['Yin Yoga', 'Mobility', 'Walking'] 
-    },
-    { 
-      phase: 'Luteal', 
-      intensity: 'Stabilize', 
-      color: Palette.orange, 
-      duration: 30, 
-      status: 'On Track',
-      exercises: ['Pilates Core', 'Resistance Band'] 
-    },
-    { 
-      phase: 'Menstrual', 
-      intensity: 'Recovery', 
-      color: Palette.crimson, 
-      duration: 15, 
-      status: 'Gentle Flow',
-      exercises: ['Stretching', 'Deep Breathing', 'Light Walk'] 
-    },
-    { 
-      phase: 'Menstrual', 
-      intensity: 'Recovery', 
-      color: Palette.crimson, 
-      duration: 20, 
-      status: 'On Track',
-      exercises: ['Low-Impact', 'Posture Flow'] 
-    },
-    { 
-      phase: 'Follicular', 
-      intensity: 'Strength', 
-      color: Palette.forestGreen, 
-      duration: 40, 
-      status: 'Energy Rising',
-      exercises: ['Goblet Squats', 'RDLs', 'Push Press'] 
-    },
-    { 
-      phase: 'Follicular', 
-      intensity: 'Power', 
-      color: Palette.forestGreen, 
-      duration: 45, 
-      status: 'Peak Force',
-      exercises: ['Deadlifts', 'Kettlebell Swings', 'HIIT'] 
-    },
-    { 
-      phase: 'Ovulatory', 
-      intensity: 'High Power', 
-      color: Palette.oceanBlue, 
-      duration: 50, 
-      status: 'Optimal',
-      exercises: ['Heavy Strength', 'Plyometrics', 'Sprints'] 
-    },
-  ];
-
-  for (let i = 0; i < 7; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    
-    const dayName = i === 0 ? 'Today' : d.toLocaleDateString('en-US', { weekday: 'short' });
-    const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    
-    daysList.push({
-      id: i,
-      day: dayName,
-      date: dateStr,
-      ...phaseMap[i],
-    });
-  }
-  return daysList;
-};
+import { useAzuka } from '../../contexts/AzukaContext';
 
 export default function Next7DaysWorkout() {
-  const weekPlan = getUpcomingWeek();
+  const { nextWorkouts, isLoading } = useAzuka();
+
+  /*
+   * AzukaContext is the source of truth.
+   *
+   * nextWorkouts comes from:
+   * GET /api/workout/next/{userId}
+   *
+   * We do not fetch anything directly here.
+   */
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.sectionTitle}>
+          7-Day Biological Outlook
+        </Text>
+
+        <Text style={styles.sectionSubtitle}>
+          Loading your adaptive workout plan...
+        </Text>
+      </View>
+    );
+  }
+
+  if (!nextWorkouts || nextWorkouts.length === 0) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.sectionTitle}>
+          7-Day Biological Outlook
+        </Text>
+
+        <Text style={styles.sectionSubtitle}>
+          No upcoming workouts available yet.
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>7-Day Biological Outlook</Text>
-      <Text style={styles.sectionSubtitle}>Dynamically adjusted to your cycle & stress load</Text>
+      <Text style={styles.sectionTitle}>
+        7-Day Biological Outlook
+      </Text>
 
-      {weekPlan.map((item) => (
-        <View
-          key={`${item.day}-${item.date}`}
-          style={[GlobalStyles.cardElevated, styles.cardWrapper]}
-        >
-          <View style={styles.weekRow}>
-            {/* Date Column */}
-            <View style={styles.dateColumn}>
-              <Text style={styles.dayName}>{item.day}</Text>
-              <Text style={styles.dateText}>{item.date}</Text>
-            </View>
+      <Text style={styles.sectionSubtitle}>
+        Dynamically adjusted to your cycle & stress load
+      </Text>
 
-            <View style={styles.verticalDivider} />
+      {nextWorkouts.map((item, index) => {
+        /*
+         * Backend workout structure:
+         *
+         * {
+         *   date: "2026-08-26",
+         *   status: "planned",
+         *   info_tag: "Recovery Focus",
+         *   intensity_tag: "Low",
+         *   activities: [...]
+         * }
+         */
 
-            {/* Phase, Status & Exercise List Info */}
-            <View style={styles.weekInfo}>
-              <View style={styles.phaseRow}>
-                <Text style={styles.weekPhase}>{item.phase}</Text>
-                <Text style={styles.statusBadge}>{item.status}</Text>
+        const workoutDate = new Date(`${item.date}T00:00:00`);
+
+        const dayName =
+          index === 0
+            ? 'Today'
+            : workoutDate.toLocaleDateString('en-US', {
+                weekday: 'short',
+              });
+
+        const dateText = workoutDate.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+        });
+
+        /*
+         * Map the backend intensity to the existing
+         * visual colors.
+         */
+        const intensity = item.intensity_tag || 'Moderate';
+
+        let intensityColor = Palette.oceanBlue;
+
+        if (
+          intensity.toLowerCase().includes('low') ||
+          intensity.toLowerCase().includes('light')
+        ) {
+          intensityColor = Palette.orange;
+        } else if (
+          intensity.toLowerCase().includes('high') ||
+          intensity.toLowerCase().includes('hard')
+        ) {
+          intensityColor = Palette.crimson;
+        } else if (
+          intensity.toLowerCase().includes('moderate')
+        ) {
+          intensityColor = Palette.forestGreen;
+        }
+
+        /*
+         * Convert backend activity objects into
+         * the exercise names shown in the UI.
+         */
+        const exercises =
+          item.activities?.map(
+            (activity) => activity.activity_name
+          ) || [];
+
+        return (
+          <View
+            key={`${item.date}-${index}`}
+            style={[
+              GlobalStyles.cardElevated,
+              styles.cardWrapper,
+            ]}
+          >
+            <View style={styles.weekRow}>
+              {/* DATE COLUMN */}
+              <View style={styles.dateColumn}>
+                <Text style={styles.dayName}>
+                  {dayName}
+                </Text>
+
+                <Text style={styles.dateText}>
+                  {dateText}
+                </Text>
               </View>
-              <Text style={styles.weekDuration}>Target: {item.duration} min</Text>
-              
-              {/* Recommended Exercises Pill List with proper margin handling */}
-              <View style={styles.exerciseContainer}>
-                {item.exercises.map((ex, idx) => (
-                  <View key={idx} style={styles.exerciseTagWrapper}>
-                    <Text style={styles.exerciseTag}>{ex}</Text>
+
+              <View style={styles.verticalDivider} />
+
+              {/* WORKOUT INFO */}
+              <View style={styles.weekInfo}>
+                <View style={styles.phaseRow}>
+                  <Text style={styles.weekPhase}>
+                    {item.info_tag || 'Adaptive Workout'}
+                  </Text>
+
+                  <Text style={styles.statusBadge}>
+                    {item.status === 'planned'
+                      ? 'On Track'
+                      : item.status || 'Planned'}
+                  </Text>
+                </View>
+
+                {/* TARGET DURATION */}
+                <Text style={styles.weekDuration}>
+                  Target:{' '}
+                  {item.activities?.reduce(
+                    (total, activity) =>
+                      total + (activity.duration_mins || 0),
+                    0
+                  ) || 0}{' '}
+                  min
+                </Text>
+
+                {/* EXERCISES */}
+                {exercises.length > 0 && (
+                  <View style={styles.exerciseContainer}>
+                    {exercises.map((exercise, idx) => (
+                      <View
+                        key={`${exercise}-${idx}`}
+                        style={styles.exerciseTagWrapper}
+                      >
+                        <Text style={styles.exerciseTag}>
+                          {exercise}
+                        </Text>
+                      </View>
+                    ))}
                   </View>
-                ))}
+                )}
               </View>
-            </View>
 
-            {/* Intensity Badge */}
-            <View
-              style={[
-                styles.weekIntensity,
-                { backgroundColor: item.color },
-              ]}
-            >
-              <Text style={styles.weekIntensityText}>{item.intensity}</Text>
+              {/* INTENSITY BADGE */}
+              <View
+                style={[
+                  styles.weekIntensity,
+                  {
+                    backgroundColor: intensityColor,
+                  },
+                ]}
+              >
+                <Text style={styles.weekIntensityText}>
+                  {intensity}
+                </Text>
+              </View>
             </View>
           </View>
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 }
@@ -141,60 +204,72 @@ const styles = StyleSheet.create({
   container: {
     marginVertical: 12,
   },
+
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: Palette.textPrimary || '#111',
     marginBottom: 2,
   },
+
   sectionSubtitle: {
     fontSize: 12,
     color: Palette.textSecondary || '#666',
     marginBottom: 12,
   },
+
   cardWrapper: {
     marginBottom: 8,
     paddingVertical: 12,
     paddingHorizontal: 16,
   },
+
   weekRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
   },
+
   dateColumn: {
     width: 50,
   },
+
   dayName: {
     fontWeight: '600',
     fontSize: 14,
     color: '#222',
   },
+
   dateText: {
     fontSize: 11,
     color: '#888',
   },
+
   verticalDivider: {
     width: 1,
     height: '100%',
     backgroundColor: '#eee',
     marginHorizontal: 12,
   },
+
   weekInfo: {
     flex: 1,
     paddingRight: 8,
   },
+
   phaseRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 6,
   },
+
   weekPhase: {
     fontWeight: '700',
     fontSize: 13,
     color: '#444',
   },
+
   statusBadge: {
     fontSize: 10,
     color: '#007AFF',
@@ -204,21 +279,25 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     overflow: 'hidden',
   },
+
   weekDuration: {
     fontSize: 12,
     color: '#666',
     marginTop: 2,
   },
+
   exerciseContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginTop: 6,
-    marginRight: -4, // Counteract right margin of last item in row
+    marginRight: -4,
   },
+
   exerciseTagWrapper: {
     marginRight: 4,
     marginBottom: 4,
   },
+
   exerciseTag: {
     fontSize: 10,
     color: '#555',
@@ -228,6 +307,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     overflow: 'hidden',
   },
+
   weekIntensity: {
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -236,6 +316,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minWidth: 80,
   },
+
   weekIntensityText: {
     color: '#fff',
     fontSize: 11,

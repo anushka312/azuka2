@@ -1,34 +1,105 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
+
 import { Palette } from '../../constants/Styles';
 import { styles } from './styles';
+import { getRecentScores, DailyScore } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 export function AnalyticsChart() {
-  const [selectedDay, setSelectedDay] = useState<string | null>('Wed');
+  const { user } = useAuth();
 
-  const chartData = [
-    { day: 'Mon', value: 40, highRisk: false, note: 'Moderate workload' },
-    { day: 'Tue', value: 65, highRisk: false, note: 'Steady energy' },
-    { day: 'Wed', value: 85, highRisk: true, note: 'High strain day' },
-    { day: 'Thu', value: 50, highRisk: false, note: 'Balanced state' },
-    { day: 'Fri', value: 75, highRisk: true, note: 'Heavy effort' },
-    { day: 'Sat', value: 30, highRisk: false, note: 'Rest & active recovery' },
-    { day: 'Sun', value: 45, highRisk: false, note: 'Light activity' },
-  ];
+  const [scores, setScores] = useState<DailyScore[]>([]);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
-  const activeItem = chartData.find((d) => d.day === selectedDay);
+  useEffect(() => {
+    if (!user?.userId) return;
+
+    loadScores();
+  }, [user?.userId]);
+
+  const loadScores = async () => {
+    if (!user?.userId) return;
+
+    try {
+      const data = await getRecentScores(user.userId, 7);
+
+      // API returns newest first in many implementations.
+      // Sort chronologically so the chart reads Mon -> Sun.
+      const sortedData = [...data].sort((a, b) =>
+        a.date.localeCompare(b.date)
+      );
+
+      setScores(sortedData);
+
+      // Select the most recent day by default
+      if (sortedData.length > 0) {
+        setSelectedDay(sortedData[sortedData.length - 1].date);
+      }
+    } catch (error) {
+      console.error('Failed to load strain-output balance scores:', error);
+    }
+  };
+
+  const getDayLabel = (date: string) => {
+    const parsedDate = new Date(`${date}T00:00:00`);
+
+    return parsedDate.toLocaleDateString('en-US', {
+      weekday: 'short',
+    });
+  };
+
+  const getScoreNote = (score: number) => {
+    if (score >= 80) {
+      return 'Strong balance';
+    }
+
+    if (score >= 60) {
+      return 'Good balance';
+    }
+
+    if (score >= 40) {
+      return 'Moderate balance';
+    }
+
+    return 'Recovery may be needed';
+  };
+
+  const chartData = scores.map((score) => ({
+    date: score.date,
+    day: getDayLabel(score.date),
+    value: score.strain_output_balance_score,
+    note: getScoreNote(score.strain_output_balance_score),
+  }));
+
+  const activeItem = chartData.find(
+    (item) => item.date === selectedDay
+  );
 
   return (
     <View style={styles.analyticsCard}>
-      {/* HEADER WITH SIMPLE COPY */}
-      <Text style={{ fontSize: 14, fontWeight: '800', color: Palette.textPrimary }}>
-        Weekly Stress & Energy Trend
-      </Text>
-      <Text style={{ fontSize: 11, color: Palette.textSecondary, marginTop: 2 }}>
-        Tracks daily nervous system strain based on your biometrics.
+      {/* HEADER */}
+      <Text
+        style={{
+          fontSize: 14,
+          fontWeight: '800',
+          color: Palette.textPrimary,
+        }}
+      >
+        Weekly Strain & Output Balance
       </Text>
 
-      {/* VISUAL LEGEND */}
+      <Text
+        style={{
+          fontSize: 11,
+          color: Palette.textSecondary,
+          marginTop: 2,
+        }}
+      >
+        Tracks how well your physical output is balanced with recovery.
+      </Text>
+
+      {/* LEGEND */}
       <View
         style={{
           flexDirection: 'row',
@@ -38,7 +109,13 @@ export function AnalyticsChart() {
           marginBottom: 8,
         }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+          }}
+        >
           <View
             style={{
               width: 8,
@@ -47,12 +124,25 @@ export function AnalyticsChart() {
               backgroundColor: Palette.oceanBlue,
             }}
           />
-          <Text style={{ fontSize: 11, fontWeight: '600', color: Palette.textSecondary }}>
-            Optimal Zone
+
+          <Text
+            style={{
+              fontSize: 11,
+              fontWeight: '600',
+              color: Palette.textSecondary,
+            }}
+          >
+            Good Balance
           </Text>
         </View>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+          }}
+        >
           <View
             style={{
               width: 8,
@@ -61,8 +151,15 @@ export function AnalyticsChart() {
               backgroundColor: Palette.crimson,
             }}
           />
-          <Text style={{ fontSize: 11, fontWeight: '600', color: Palette.textSecondary }}>
-            High Stress Spike
+
+          <Text
+            style={{
+              fontSize: 11,
+              fontWeight: '600',
+              color: Palette.textSecondary,
+            }}
+          >
+            Lower Balance
           </Text>
         </View>
       </View>
@@ -70,13 +167,15 @@ export function AnalyticsChart() {
       {/* BAR CHART */}
       <View style={styles.chartContainer}>
         {chartData.map((item, index) => {
-          const isSelected = item.day === selectedDay;
+          const isSelected = item.date === selectedDay;
+
+          const isLowBalance = item.value < 50;
 
           return (
             <TouchableOpacity
-              key={index}
+              key={`${item.date}-${index}`}
               style={styles.chartBarCol}
-              onPress={() => setSelectedDay(item.day)}
+              onPress={() => setSelectedDay(item.date)}
               activeOpacity={0.7}
             >
               <View
@@ -92,14 +191,18 @@ export function AnalyticsChart() {
                   style={[
                     styles.barFill,
                     {
-                      height: `${item.value}%`,
-                      backgroundColor: item.highRisk
+                      height: `${Math.min(
+                        Math.max(item.value, 0),
+                        100
+                      )}%`,
+                      backgroundColor: isLowBalance
                         ? Palette.crimson
                         : Palette.oceanBlue,
                     },
                   ]}
                 />
               </View>
+
               <Text
                 style={[
                   styles.chartLabel,
@@ -116,7 +219,7 @@ export function AnalyticsChart() {
         })}
       </View>
 
-      {/* DYNAMIC TAP DETAIL CONTAINER */}
+      {/* DETAIL */}
       {activeItem && (
         <View
           style={{
@@ -129,11 +232,43 @@ export function AnalyticsChart() {
             alignItems: 'center',
           }}
         >
-          <Text style={{ fontSize: 12, fontWeight: '700', color: Palette.textPrimary }}>
-            {activeItem.day}: {activeItem.value}% Total Strain
+          <Text
+            style={{
+              fontSize: 12,
+              fontWeight: '700',
+              color: Palette.textPrimary,
+            }}
+          >
+            {activeItem.day}: {activeItem.value}% Balance
           </Text>
-          <Text style={{ fontSize: 11, fontWeight: '600', color: Palette.textSecondary }}>
+
+          <Text
+            style={{
+              fontSize: 11,
+              fontWeight: '600',
+              color: Palette.textSecondary,
+            }}
+          >
             {activeItem.note}
+          </Text>
+        </View>
+      )}
+
+      {/* NO DATA */}
+      {scores.length === 0 && (
+        <View
+          style={{
+            paddingVertical: 20,
+            alignItems: 'center',
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 12,
+              color: Palette.textSecondary,
+            }}
+          >
+            No strain-output data available yet.
           </Text>
         </View>
       )}

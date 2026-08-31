@@ -1,4 +1,6 @@
+
 import React, { useState } from 'react';
+
 import {
     SafeAreaView,
     ScrollView,
@@ -8,13 +10,14 @@ import {
     Switch,
     Pressable,
     Modal,
-    TextInput,
-    Image,
     Alert,
 } from 'react-native';
+
 import { Stack, useRouter } from 'expo-router';
+
 import { useAuth } from '@/contexts/AuthContext';
-import * as ImagePicker from 'expo-image-picker';
+import { useAzuka } from '@/contexts/AzukaContext';
+
 import {
     ChevronLeft,
     ChevronRight,
@@ -23,11 +26,10 @@ import {
     LogOut,
     Moon,
     Trash2,
-    Camera,
     CheckCircle2,
-    Edit3,
     RefreshCw,
 } from 'lucide-react-native';
+
 import LottieView from 'lottie-react-native';
 
 import { Palette, GlobalStyles } from '@/constants/Styles';
@@ -35,70 +37,185 @@ import { Palette, GlobalStyles } from '@/constants/Styles';
 export default function SettingsScreen() {
     const router = useRouter();
 
-    // Profile Edit State (Saves locally with zero recalibration)
-    const [userName, setUserName] = useState('Anushka');
-    const [profileImage, setProfileImage] = useState<string | null>(null);
-    const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
+    // ============================================================
+    // AUTH
+    // ============================================================
 
-    // Preference Toggle States
-    const [hapticFeedback, setHapticFeedback] = useState(true);
-    const [pushNotifications, setPushNotifications] = useState(true);
+    const { signOut } = useAuth();
 
-    // Recalibration Full Screen Flow State
-    const [isRecalibrating, setIsRecalibrating] = useState(false);
-    const [recalibrateMessage, setRecalibrateMessage] = useState('');
+    // ============================================================
+    // AZUKA CONTEXT
+    // ============================================================
 
-    // 1. Photo Picker (No Recalibration Triggered)
-    const handlePickImage = async () => {
-        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const { userProfile } = useAzuka();
 
-        if (!permissionResult.granted) {
-            Alert.alert(
-                'Permission Required',
-                'Permission to access your photo gallery is required to select a profile picture.'
+    // ============================================================
+    // USER PROFILE
+    // ============================================================
+
+    const userName = userProfile?.name || 'User';
+
+    const userEmail = userProfile?.email || 'No email available';
+
+    // ============================================================
+    // CYCLE INFORMATION
+    // ============================================================
+
+    const lastPeriodStartDate =
+        userProfile?.general_state?.last_period_start_date;
+
+    const averageCycleLength =
+        userProfile?.general_state?.average_cycle_length || 28;
+
+    const periodDuration =
+        userProfile?.general_state?.period_duration || 5;
+
+    // ============================================================
+    // CALCULATE CURRENT CYCLE DAY
+    // ============================================================
+
+    const getCycleDay = (): number | null => {
+        if (!lastPeriodStartDate) {
+            return null;
+        }
+
+        // Parse YYYY-MM-DD safely
+        const [year, month, day] =
+            lastPeriodStartDate.split('-').map(Number);
+
+        if (!year || !month || !day) {
+            return null;
+        }
+
+        const startDate = new Date(
+            year,
+            month - 1,
+            day
+        );
+
+        const today = new Date();
+
+        // Remove time component
+        today.setHours(0, 0, 0, 0);
+        startDate.setHours(0, 0, 0, 0);
+
+        const difference =
+            today.getTime() - startDate.getTime();
+
+        const daysSinceStart =
+            Math.floor(
+                difference /
+                    (1000 * 60 * 60 * 24)
             );
-            return;
+
+        if (daysSinceStart < 0) {
+            return null;
         }
 
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images'],
-            allowsEditing: true,
-            aspect: [1, 1],
-            quality: 0.8,
-        });
+        // Cycle day starts at 1
+        const cycleDay =
+            (daysSinceStart % averageCycleLength) + 1;
 
-        if (!result.canceled && result.assets && result.assets.length > 0) {
-            setProfileImage(result.assets[0].uri);
+        return cycleDay;
+    };
+
+    const cycleDay = getCycleDay();
+
+    // ============================================================
+    // CALCULATE CURRENT PHASE
+    // ============================================================
+
+    const getCyclePhase = (
+        day: number | null
+    ): string => {
+        if (!day) {
+            return 'Cycle data unavailable';
         }
+
+        // Period / Menstrual phase
+        if (day <= periodDuration) {
+            return 'Menstrual';
+        }
+
+        // Follicular phase
+        // Approximation:
+        // Period ends -> ovulation
+        const ovulationDay =
+            Math.round(averageCycleLength / 2);
+
+        if (day < ovulationDay) {
+            return 'Follicular';
+        }
+
+        // Ovulation
+        if (
+            day >= ovulationDay - 1 &&
+            day <= ovulationDay + 1
+        ) {
+            return 'Ovulation';
+        }
+
+        // Luteal
+        return 'Luteal';
     };
 
-    // Direct Save for Profile Info (Immediate update)
-    const handleSaveProfile = () => {
-        setIsEditProfileModalOpen(false);
-    };
+    const cyclePhase = getCyclePhase(cycleDay);
 
-    // 2. Biological Engine Recalibration Handler
-    const triggerRecalibration = (reason: string) => {
+    // ============================================================
+    // PREFERENCE TOGGLES
+    // ============================================================
+
+    const [hapticFeedback, setHapticFeedback] =
+        useState(true);
+
+    const [pushNotifications, setPushNotifications] =
+        useState(true);
+
+    // ============================================================
+    // RECALIBRATION
+    // ============================================================
+
+    const [isRecalibrating, setIsRecalibrating] =
+        useState(false);
+
+    const [recalibrateMessage, setRecalibrateMessage] =
+        useState('');
+
+    // ============================================================
+    // RECALIBRATION HANDLER
+    // ============================================================
+
+    const triggerRecalibration = (
+        reason: string
+    ) => {
         setRecalibrateMessage(reason);
         setIsRecalibrating(true);
 
-        // After animation delay, redirect to dashboard
         setTimeout(() => {
             setIsRecalibrating(false);
             router.replace('/(tabs)/home');
         }, 3200);
     };
 
+    // ============================================================
+    // DELETE ACCOUNT
+    // ============================================================
+
     const handleDeleteAccount = () => {
         Alert.alert(
             'Delete Account',
             'Are you sure you want to permanently delete your account and clear all cycle data? This action cannot be undone.',
             [
-                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Cancel',
+                    style: 'cancel',
+                },
                 {
                     text: 'Delete',
                     style: 'destructive',
                     onPress: () => {
+                        // TODO:
+                        // Implement Firebase + MongoDB account deletion.
                         router.replace('/');
                     },
                 },
@@ -106,250 +223,641 @@ export default function SettingsScreen() {
         );
     };
 
-    //log out button
-    const { signOut } = useAuth();
+    // ============================================================
+    // LOGOUT
+    // ============================================================
 
-        const handleLogout = async () => {
-        await signOut();
-        router.replace('/');
-        };
+    const handleLogout = async () => {
+        try {
+            await signOut();
+
+            // DO NOT manually navigate here.
+            //
+            // AuthContext changes isAuthenticated -> false.
+            // Your root _layout.tsx / AuthRedirect should then
+            // automatically send the user to the login screen.
+        } catch (error) {
+            console.error(
+                'Logout error:',
+                error
+            );
+
+            Alert.alert(
+                'Logout failed',
+                'Unable to log out. Please try again.'
+            );
+        }
+    };
+
+    // ============================================================
+    // AVATAR
+    // ============================================================
+
+    const avatarInitial =
+        userName.charAt(0).toUpperCase();
+
+    // ============================================================
+    // UI
+    // ============================================================
 
     return (
-        <SafeAreaView style={GlobalStyles.screenContainer}>
-            <Stack.Screen options={{ headerShown: false }} />
+        <SafeAreaView
+            style={GlobalStyles.screenContainer}
+        >
+            <Stack.Screen
+                options={{
+                    headerShown: false,
+                }}
+            />
 
-            {/* TOP BAR */}
+            {/* =====================================================
+                TOP BAR
+            ====================================================== */}
+
             <View style={styles.topBar}>
-                <Pressable onPress={() => router.back()} style={styles.backButton} hitSlop={10}>
-                    <ChevronLeft size={24} color={Palette.textPrimary} />
-                </Pressable>
-                <Text style={GlobalStyles.headingMedium}>Settings</Text>
-                <View style={{ width: 36 }} />
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-                {/* PROFILE & IDENTITY SECTION */}
-                <Text style={styles.sectionHeader}>Profile & Identity</Text>
-                <View style={GlobalStyles.cardElevated}>
-                    <View style={styles.profileRow}>
-                        <Pressable style={styles.avatarContainer} onPress={() => setIsEditProfileModalOpen(true)}>
-                            {profileImage ? (
-                                <Image source={{ uri: profileImage }} style={styles.avatarImage} />
-                            ) : (
-                                <View style={styles.avatarPlaceholder}>
-                                    <Text style={styles.avatarText}>{userName.charAt(0).toUpperCase()}</Text>
-                                </View>
-                            )}
-                            <View style={styles.cameraBadge}>
-                                <Camera size={12} color={Palette.surfaceWhite} />
-                            </View>
-                        </Pressable>
-
-                        <View style={{ flex: 1, marginLeft: 14 }}>
-                            <Text style={styles.rowTitle}>{userName}</Text>
-                            <Text style={styles.rowSubtitle}>Luteal Phase • Day 22</Text>
-                        </View>
-
-                        <Pressable style={styles.editButton} onPress={() => setIsEditProfileModalOpen(true)}>
-                            <Edit3 size={16} color={Palette.oceanBlue} />
-                            <Text style={styles.editButtonText}>Edit</Text>
-                        </Pressable>
-                    </View>
-                </View>
-
-                {/* BIOLOGICAL ENGINE SETUP (Triggers Engine Recalibration) */}
-                {/* BIOLOGICAL ENGINE SETUP */}
-                <Text style={styles.sectionHeader}>Biological Engine Setup</Text>
-                <View style={GlobalStyles.cardElevated}>
-                    <Pressable style={styles.settingRow} onPress={() => router.push('/reconfigure-biology')}>
-                        <View style={styles.rowLeft}>
-                            <View style={[styles.iconWrapper, { backgroundColor: Palette.surfaceGreenMuted }]}>
-                                <Activity size={20} color={Palette.forestGreen} />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.rowTitle}>Re-configure Biology & Goals</Text>
-                                <Text style={styles.rowSubtitle}>Cycle, workout capacity, diet & friction points</Text>
-                            </View>
-                        </View>
-                        <ChevronRight size={20} color={Palette.textSecondary} />
-                    </Pressable>
-                
-
-                <View style={styles.divider} />
-
                 <Pressable
-                    style={styles.settingRow}
-                    onPress={() => triggerRecalibration('Manual trigger: Resyncing engine metrics to current day...')}
+                    onPress={() => router.back()}
+                    style={styles.backButton}
+                    hitSlop={10}
                 >
-                    <View style={styles.rowLeft}>
-                        <View style={[styles.iconWrapper, { backgroundColor: Palette.surfaceBlueMuted }]}>
-                            <RefreshCw size={20} color={Palette.oceanBlue} />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.rowTitle}>Force Engine Recalibration</Text>
-                            <Text style={styles.rowSubtitle}>Re-calculate daily adaptive rules now</Text>
-                        </View>
-                    </View>
-                    <ChevronRight size={20} color={Palette.textSecondary} />
+                    <ChevronLeft
+                        size={24}
+                        color={Palette.textPrimary}
+                    />
                 </Pressable>
-            </View>
 
-            {/* PREFERENCES */}
-            <Text style={styles.sectionHeader}>Preferences</Text>
-            <View style={GlobalStyles.cardElevated}>
-                <View style={styles.settingRow}>
-                    <View style={styles.rowLeft}>
-                        <View style={[styles.iconWrapper, { backgroundColor: Palette.surfaceGreenMuted }]}>
-                            <Bell size={20} color={Palette.forestGreen} />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.rowTitle}>Push Notifications</Text>
-                            <Text style={styles.rowSubtitle}>Phase shift & recovery alerts</Text>
-                        </View>
-                    </View>
-                    <Switch
-                        value={pushNotifications}
-                        onValueChange={setPushNotifications}
-                        trackColor={{ false: Palette.borderSubtle, true: Palette.forestGreen }}
-                    />
-                </View>
-
-                <View style={styles.divider} />
-
-                <View style={styles.settingRow}>
-                    <View style={styles.rowLeft}>
-                        <View style={[styles.iconWrapper, { backgroundColor: Palette.surfaceBlueMuted }]}>
-                            <Moon size={20} color={Palette.skyBlue} />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.rowTitle}>Haptic Feedback</Text>
-                            <Text style={styles.rowSubtitle}>Tactile responses on interactive prompts</Text>
-                        </View>
-                    </View>
-                    <Switch
-                        value={hapticFeedback}
-                        onValueChange={setHapticFeedback}
-                        trackColor={{ false: Palette.borderSubtle, true: Palette.skyBlue }}
-                    />
-                </View>
-            </View>
-
-            {/* ACCOUNT ACTIONS */}
-            <Text style={styles.sectionHeader}>Account Actions</Text>
-            <View style={{ gap: 10, marginTop: 4, marginBottom: 40 }}>
-                <Pressable
-                    style={styles.logoutButton}
-                    onPress={handleLogout}
+                <Text
+                    style={
+                        GlobalStyles.headingMedium
+                    }
                 >
-                <LogOut size={18} color={Palette.textPrimary} />
-                <Text style={styles.logoutText}>Log Out</Text>
-                </Pressable>
-
-                <Pressable style={styles.deleteButton} onPress={handleDeleteAccount}>
-                    <Trash2 size={18} color={Palette.crimson} />
-                    <Text style={styles.deleteText}>Delete Account</Text>
-                </Pressable>
-
-                <Text style={styles.versionText}>Azuka Core Engine v1.0.4 (Build 42)</Text>
-            </View>
-        </ScrollView>
-
-      {/* EDIT PROFILE MODAL */ }
-    <Modal
-        visible={isEditProfileModalOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsEditProfileModalOpen(false)}
-    >
-        <View style={styles.modalBackdrop}>
-            <View style={styles.modalCard}>
-                <Text style={GlobalStyles.headingMedium}>Edit Profile</Text>
-
-                <Pressable style={styles.modalAvatarContainer} onPress={handlePickImage}>
-                    {profileImage ? (
-                        <Image source={{ uri: profileImage }} style={styles.modalAvatarImage} />
-                    ) : (
-                        <View style={styles.modalAvatarPlaceholder}>
-                            <Text style={styles.modalAvatarText}>{userName.charAt(0).toUpperCase()}</Text>
-                        </View>
-                    )}
-                    <Text style={styles.changePhotoText}>Choose Photo from Gallery</Text>
-                </Pressable>
-
-                <Text style={styles.inputLabel}>Name</Text>
-                <TextInput
-                    style={GlobalStyles.inputField}
-                    value={userName}
-                    onChangeText={setUserName}
-                    placeholder="Enter your name"
-                />
-
-                <View style={styles.modalActions}>
-                    <Pressable
-                        style={[GlobalStyles.btnOutline, { flex: 1 }]}
-                        onPress={() => setIsEditProfileModalOpen(false)}
-                    >
-                        <Text style={GlobalStyles.btnOutlineText}>Cancel</Text>
-                    </Pressable>
-                    <Pressable
-                        style={[GlobalStyles.btnPrimary, { flex: 1, backgroundColor: Palette.oceanBlue }]}
-                        onPress={handleSaveProfile}
-                    >
-                        <Text style={GlobalStyles.btnPrimaryText}>Save Changes</Text>
-                    </Pressable>
-                </View>
-            </View>
-        </View>
-    </Modal>
-
-    {/* FULL PAGE RECALIBRATION & CELEBRATION ANIMATION */ }
-    <Modal visible={isRecalibrating} animationType="fade" statusBarTranslucent>
-        <SafeAreaView style={styles.fullScreenContainer}>
-            <View style={styles.fullScreenContent}>
-                <LottieView
-                    source={{ uri: 'https://assets5.lottiefiles.com/packages/lf20_u4yrau.json' }}
-                    autoPlay
-                    loop={false}
-                    style={styles.lottieAnimation}
-                />
-
-                <View style={styles.badgeContainer}>
-                    <CheckCircle2 size={32} color={Palette.forestGreen} />
-                </View>
-
-                <Text style={styles.fullScreenTitle}>Recalibrating Engine</Text>
-                <Text style={styles.fullScreenSubtitle}>
-                    {recalibrateMessage || 'Aligning workouts, macros, and minimum-win targets...'}
+                    Settings
                 </Text>
 
-                <Text style={styles.redirectingNotice}>Redirecting to Dashboard...</Text>
+                <View
+                    style={{
+                        width: 36,
+                    }}
+                />
             </View>
+
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={
+                    styles.scrollContent
+                }
+            >
+                {/* =================================================
+                    PROFILE & IDENTITY
+                ================================================== */}
+
+                <Text style={styles.sectionHeader}>
+                    Profile & Identity
+                </Text>
+
+                <View
+                    style={
+                        GlobalStyles.cardElevated
+                    }
+                >
+                    <View style={styles.profileRow}>
+                        {/* Avatar */}
+
+                        <View
+                            style={
+                                styles.avatarContainer
+                            }
+                        >
+                            <View
+                                style={
+                                    styles.avatarPlaceholder
+                                }
+                            >
+                                <Text
+                                    style={
+                                        styles.avatarText
+                                    }
+                                >
+                                    {avatarInitial}
+                                </Text>
+                            </View>
+                        </View>
+
+                        {/* User Information */}
+
+                        <View
+                            style={{
+                                flex: 1,
+                                marginLeft: 14,
+                            }}
+                        >
+                            <Text
+                                style={
+                                    styles.rowTitle
+                                }
+                            >
+                                {userName}
+                            </Text>
+
+                            <Text
+                                style={
+                                    styles.rowSubtitle
+                                }
+                            >
+                                {userEmail}
+                            </Text>
+
+                            {/* Cycle information */}
+
+                            <Text
+                                style={[
+                                    styles.rowSubtitle,
+                                    {
+                                        marginTop: 6,
+                                    },
+                                ]}
+                            >
+                                {cycleDay
+                                    ? `${cyclePhase} • Day ${cycleDay}` : 'Cycle information unavailable'}
+                            </Text>
+                        </View>
+                    </View>
+                </View>
+
+                {/* =================================================
+                    BIOLOGICAL ENGINE SETUP
+                ================================================== */}
+
+                <Text style={styles.sectionHeader}>
+                    Biological Engine Setup
+                </Text>
+
+                <View
+                    style={
+                        GlobalStyles.cardElevated
+                    }
+                >
+                    {/* Reconfigure Biology */}
+
+                    <Pressable
+                        style={styles.settingRow}
+                        onPress={() =>
+                            router.push(
+                                '/reconfigure-biology'
+                            )
+                        }
+                    >
+                        <View
+                            style={styles.rowLeft}
+                        >
+                            <View
+                                style={[
+                                    styles.iconWrapper,
+                                    {
+                                        backgroundColor:
+                                            Palette.surfaceGreenMuted,
+                                    },
+                                ]}
+                            >
+                                <Activity
+                                    size={20}
+                                    color={
+                                        Palette.forestGreen
+                                    }
+                                />
+                            </View>
+
+                            <View
+                                style={{
+                                    flex: 1,
+                                }}
+                            >
+                                <Text
+                                    style={
+                                        styles.rowTitle
+                                    }
+                                >
+                                    Re-configure Biology
+                                    & Goals
+                                </Text>
+
+                                <Text
+                                    style={
+                                        styles.rowSubtitle
+                                    }
+                                >
+                                    Cycle, workout capacity,
+                                    diet & friction points
+                                </Text>
+                            </View>
+                        </View>
+
+                        <ChevronRight
+                            size={20}
+                            color={
+                                Palette.textSecondary
+                            }
+                        />
+                    </Pressable>
+
+                    <View
+                        style={styles.divider}
+                    />
+
+                    {/* Force Recalibration */}
+
+                    <Pressable
+                        style={styles.settingRow}
+                        onPress={() =>
+                            triggerRecalibration(
+                                'Manual trigger: Resyncing engine metrics to current day...'
+                            )
+                        }
+                    >
+                        <View
+                            style={styles.rowLeft}
+                        >
+                            <View
+                                style={[
+                                    styles.iconWrapper,
+                                    {
+                                        backgroundColor:
+                                            Palette.surfaceBlueMuted,
+                                    },
+                                ]}
+                            >
+                                <RefreshCw
+                                    size={20}
+                                    color={
+                                        Palette.oceanBlue
+                                    }
+                                />
+                            </View>
+
+                            <View
+                                style={{
+                                    flex: 1,
+                                }}
+                            >
+                                <Text
+                                    style={
+                                        styles.rowTitle
+                                    }
+                                >
+                                    Force Engine
+                                    Recalibration
+                                </Text>
+
+                                <Text
+                                    style={
+                                        styles.rowSubtitle
+                                    }
+                                >
+                                    Re-calculate daily
+                                    adaptive rules now
+                                </Text>
+                            </View>
+                        </View>
+
+                        <ChevronRight
+                            size={20}
+                            color={
+                                Palette.textSecondary
+                            }
+                        />
+                    </Pressable>
+                </View>
+
+                {/* =================================================
+                    PREFERENCES
+                ================================================== */}
+
+                <Text style={styles.sectionHeader}>
+                    Preferences
+                </Text>
+
+                <View
+                    style={
+                        GlobalStyles.cardElevated
+                    }
+                >
+                    {/* Push Notifications */}
+
+                    <View
+                        style={styles.settingRow}
+                    >
+                        <View
+                            style={styles.rowLeft}
+                        >
+                            <View
+                                style={[
+                                    styles.iconWrapper,
+                                    {
+                                        backgroundColor:
+                                            Palette.surfaceGreenMuted,
+                                    },
+                                ]}
+                            >
+                                <Bell
+                                    size={20}
+                                    color={
+                                        Palette.forestGreen
+                                    }
+                                />
+                            </View>
+
+                            <View
+                                style={{
+                                    flex: 1,
+                                }}
+                            >
+                                <Text
+                                    style={
+                                        styles.rowTitle
+                                    }
+                                >
+                                    Push Notifications
+                                </Text>
+
+                                <Text
+                                    style={
+                                        styles.rowSubtitle
+                                    }
+                                >
+                                    Phase shift & recovery
+                                    alerts
+                                </Text>
+                            </View>
+                        </View>
+
+                        <Switch
+                            value={
+                                pushNotifications
+                            }
+                            onValueChange={
+                                setPushNotifications
+                            }
+                            trackColor={{
+                                false:
+                                    Palette.borderSubtle,
+                                true:
+                                    Palette.forestGreen,
+                            }}
+                        />
+                    </View>
+
+                    <View
+                        style={styles.divider}
+                    />
+
+                    {/* Haptic Feedback */}
+
+                    <View
+                        style={styles.settingRow}
+                    >
+                        <View
+                            style={styles.rowLeft}
+                        >
+                            <View
+                                style={[
+                                    styles.iconWrapper,
+                                    {
+                                        backgroundColor:
+                                            Palette.surfaceBlueMuted,
+                                    },
+                                ]}
+                            >
+                                <Moon
+                                    size={20}
+                                    color={
+                                        Palette.skyBlue
+                                    }
+                                />
+                            </View>
+
+                            <View
+                                style={{
+                                    flex: 1,
+                                }}
+                            >
+                                <Text
+                                    style={
+                                        styles.rowTitle
+                                    }
+                                >
+                                    Haptic Feedback
+                                </Text>
+
+                                <Text
+                                    style={
+                                        styles.rowSubtitle
+                                    }
+                                >
+                                    Tactile responses on
+                                    interactive prompts
+                                </Text>
+                            </View>
+                        </View>
+
+                        <Switch
+                            value={hapticFeedback}
+                            onValueChange={
+                                setHapticFeedback
+                            }
+                            trackColor={{
+                                false:
+                                    Palette.borderSubtle,
+                                true:
+                                    Palette.skyBlue,
+                            }}
+                        />
+                    </View>
+                </View>
+
+                {/* =================================================
+                    ACCOUNT ACTIONS
+                ================================================== */}
+
+                <Text style={styles.sectionHeader}>
+                    Account Actions
+                </Text>
+
+                <View
+                    style={{
+                        gap: 10,
+                        marginTop: 4,
+                        marginBottom: 40,
+                    }}
+                >
+                    {/* Logout */}
+
+                    <Pressable
+                        style={styles.logoutButton}
+                        onPress={handleLogout}
+                    >
+                        <LogOut
+                            size={18}
+                            color={
+                                Palette.textPrimary
+                            }
+                        />
+
+                        <Text
+                            style={
+                                styles.logoutText
+                            }
+                        >
+                            Log Out
+                        </Text>
+                    </Pressable>
+
+                    {/* Delete Account */}
+
+                    <Pressable
+                        style={styles.deleteButton}
+                        onPress={
+                            handleDeleteAccount
+                        }
+                    >
+                        <Trash2
+                            size={18}
+                            color={
+                                Palette.crimson
+                            }
+                        />
+
+                        <Text
+                            style={
+                                styles.deleteText
+                            }
+                        >
+                            Delete Account
+                        </Text>
+                    </Pressable>
+
+                    <Text
+                        style={
+                            styles.versionText
+                        }
+                    >
+                        Azuka Core Engine v1.0.4
+                        {' '}(
+                        Build 42)
+                    </Text>
+                </View>
+            </ScrollView>
+
+            {/* =====================================================
+                FULL PAGE RECALIBRATION
+            ====================================================== */}
+
+            <Modal
+                visible={isRecalibrating}
+                animationType="fade"
+                statusBarTranslucent
+            >
+                <SafeAreaView
+                    style={
+                        styles.fullScreenContainer
+                    }
+                >
+                    <View
+                        style={
+                            styles.fullScreenContent
+                        }
+                    >
+                        <LottieView
+                            source={{
+                                uri: 'https://assets5.lottiefiles.com/packages/lf20_u4yrau.json',
+                            }}
+                            autoPlay
+                            loop={false}
+                            style={
+                                styles.lottieAnimation
+                            }
+                        />
+
+                        <View
+                            style={
+                                styles.badgeContainer
+                            }
+                        >
+                            <CheckCircle2
+                                size={32}
+                                color={
+                                    Palette.forestGreen
+                                }
+                            />
+                        </View>
+
+                        <Text
+                            style={
+                                styles.fullScreenTitle
+                            }
+                        >
+                            Recalibrating Engine
+                        </Text>
+
+                        <Text
+                            style={
+                                styles.fullScreenSubtitle
+                            }
+                        >
+                            {recalibrateMessage ||
+                                'Aligning workouts, macros, and minimum-win targets...'}
+                        </Text>
+
+                        <Text
+                            style={
+                                styles.redirectingNotice
+                            }
+                        >
+                            Redirecting to Dashboard...
+                        </Text>
+                    </View>
+                </SafeAreaView>
+            </Modal>
         </SafeAreaView>
-    </Modal>
-    </SafeAreaView >
-  );
+    );
 }
 
 const styles = StyleSheet.create({
+    // ============================================================
+    // TOP BAR
+    // ============================================================
+
     topBar: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingVertical: 12,
     },
+
     backButton: {
         width: 36,
         height: 36,
         borderRadius: 18,
-        backgroundColor: Palette.surfaceWhite,
+        backgroundColor:
+            Palette.surfaceWhite,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: Palette.borderSubtle,
+        borderColor:
+            Palette.borderSubtle,
     },
+
+    // ============================================================
+    // SCROLL
+    // ============================================================
+
     scrollContent: {
         paddingVertical: 12,
     },
+
+    // ============================================================
+    // SECTION HEADER
+    // ============================================================
+
     sectionHeader: {
         fontSize: 13,
         fontWeight: '800',
@@ -360,71 +868,55 @@ const styles = StyleSheet.create({
         marginBottom: 8,
         marginLeft: 4,
     },
+
+    // ============================================================
+    // PROFILE
+    // ============================================================
+
     profileRow: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 6,
     },
+
     avatarContainer: {
         position: 'relative',
     },
+
     avatarPlaceholder: {
         width: 52,
         height: 52,
         borderRadius: 26,
-        backgroundColor: Palette.oceanBlue,
+        backgroundColor:
+            Palette.oceanBlue,
         justifyContent: 'center',
         alignItems: 'center',
     },
+
     avatarText: {
         fontSize: 20,
         fontWeight: '800',
         color: Palette.surfaceWhite,
     },
-    avatarImage: {
-        width: 52,
-        height: 52,
-        borderRadius: 26,
-    },
-    cameraBadge: {
-        position: 'absolute',
-        bottom: -2,
-        right: -2,
-        backgroundColor: Palette.marigold,
-        width: 20,
-        height: 20,
-        borderRadius: 10,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1.5,
-        borderColor: Palette.surfaceWhite,
-    },
-    editButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        backgroundColor: Palette.surfaceBlueMuted,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 12,
-    },
-    editButtonText: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: Palette.oceanBlue,
-    },
+
+    // ============================================================
+    // SETTINGS ROWS
+    // ============================================================
+
     settingRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingVertical: 12,
     },
+
     rowLeft: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
         flex: 1,
     },
+
     iconWrapper: {
         width: 38,
         height: 38,
@@ -432,22 +924,31 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
+
     rowTitle: {
         fontSize: 15,
         fontWeight: '700',
         color: Palette.textPrimary,
     },
+
     rowSubtitle: {
         fontSize: 12,
         fontWeight: '500',
         color: Palette.textSecondary,
         marginTop: 2,
     },
+
     divider: {
         height: 1,
-        backgroundColor: Palette.borderSubtle,
+        backgroundColor:
+            Palette.borderSubtle,
         marginVertical: 4,
     },
+
+    // ============================================================
+    // ACCOUNT ACTIONS
+    // ============================================================
+
     logoutButton: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -455,15 +956,19 @@ const styles = StyleSheet.create({
         gap: 8,
         paddingVertical: 14,
         borderRadius: 14,
-        backgroundColor: Palette.surfaceWhite,
+        backgroundColor:
+            Palette.surfaceWhite,
         borderWidth: 1,
-        borderColor: Palette.borderSubtle,
+        borderColor:
+            Palette.borderSubtle,
     },
+
     logoutText: {
         fontSize: 15,
         fontWeight: '800',
         color: Palette.textPrimary,
     },
+
     deleteButton: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -471,15 +976,19 @@ const styles = StyleSheet.create({
         gap: 8,
         paddingVertical: 14,
         borderRadius: 14,
-        backgroundColor: Palette.surfaceCrimsonMuted,
+        backgroundColor:
+            Palette.surfaceCrimsonMuted,
         borderWidth: 1,
-        borderColor: Palette.crimson,
+        borderColor:
+            Palette.crimson,
     },
+
     deleteText: {
         fontSize: 15,
         fontWeight: '800',
         color: Palette.crimson,
     },
+
     versionText: {
         textAlign: 'center',
         marginTop: 12,
@@ -487,82 +996,34 @@ const styles = StyleSheet.create({
         color: Palette.textSecondary,
         fontWeight: '600',
     },
-    modalBackdrop: {
-        flex: 1,
-        backgroundColor: 'rgba(20, 15, 10, 0.5)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-    },
-    modalCard: {
-        width: '100%',
-        backgroundColor: Palette.surfaceWhite,
-        borderRadius: 20,
-        padding: 24,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 10,
-        elevation: 8,
-    },
-    modalAvatarContainer: {
-        alignItems: 'center',
-        marginVertical: 16,
-    },
-    modalAvatarPlaceholder: {
-        width: 72,
-        height: 72,
-        borderRadius: 36,
-        backgroundColor: Palette.oceanBlue,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 8,
-    },
-    modalAvatarText: {
-        fontSize: 28,
-        fontWeight: '800',
-        color: Palette.surfaceWhite,
-    },
-    modalAvatarImage: {
-        width: 72,
-        height: 72,
-        borderRadius: 36,
-        marginBottom: 8,
-    },
-    changePhotoText: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: Palette.oceanBlue,
-    },
-    inputLabel: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: Palette.textPrimary,
-        marginBottom: 6,
-    },
-    modalActions: {
-        flexDirection: 'row',
-        gap: 12,
-        marginTop: 20,
-    },
+
+    // ============================================================
+    // RECALIBRATION SCREEN
+    // ============================================================
+
     fullScreenContainer: {
         flex: 1,
-        backgroundColor: Palette.surfaceWhite,
+        backgroundColor:
+            Palette.surfaceWhite,
     },
+
     fullScreenContent: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 28,
     },
+
     lottieAnimation: {
         width: 240,
         height: 240,
     },
+
     badgeContainer: {
         marginTop: -20,
         marginBottom: 16,
     },
+
     fullScreenTitle: {
         fontSize: 24,
         fontWeight: '800',
@@ -570,6 +1031,7 @@ const styles = StyleSheet.create({
         marginBottom: 10,
         textAlign: 'center',
     },
+
     fullScreenSubtitle: {
         fontSize: 15,
         color: Palette.textSecondary,
@@ -577,6 +1039,7 @@ const styles = StyleSheet.create({
         lineHeight: 22,
         marginBottom: 32,
     },
+
     redirectingNotice: {
         fontSize: 13,
         fontWeight: '700',

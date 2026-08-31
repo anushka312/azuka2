@@ -1,33 +1,64 @@
+
 import React from 'react';
+
 import { View, Text } from 'react-native';
-import { Palette } from '../../constants/Styles';
+
+import { useAzuka } from '../../contexts/AzukaContext';
+
 import { styles } from './styles';
 
-type Props = {
-  phase: string;
-  cycleDay: number;
-  isMinimumWin: boolean;
-  comment?: string;
-};
+export function CycleStatusCard() {
+  const { dailyState } = useAzuka();
 
-export function CycleStatusCard({ phase, cycleDay, isMinimumWin, comment }: Props) {
-  const displayMessage = isMinimumWin
-    ? 'System in Recovery Preservation Mode. High stress detected—all volume caps reduced by 50% to protect nervous state.'
-    : comment ||
-      'Estrogen is stabilizing and progesterone is rising. Shift towards steady-state effort and moderate recovery protocols.';
+  // ============================================================
+  // AZUKA CONTEXT = SOURCE OF TRUTH
+  // ============================================================
+
+  const phase = dailyState?.phase;
+  const cycleDay = dailyState?.day;
+  const comment = dailyState?.comment;
+
+  // ============================================================
+  // DISPLAY MESSAGE
+  // ============================================================
+
+  const displayMessage =
+    comment ||
+    'Your daily guidance is being personalized based on your current cycle phase and body state.';
 
   return (
     <View style={styles.cycleCard}>
+
+      {/* ========================================================
+          HEADER
+          ======================================================== */}
+
       <View style={styles.cycleCardHeader}>
         <View style={styles.phaseBadge}>
+
           <View style={styles.phaseBadgeDot} />
-          <Text style={styles.phaseBadgeText}>{phase} Phase • Day {cycleDay}</Text>
+
+          <Text style={styles.phaseBadgeText}>
+            {phase
+              ? `${phase} Phase`
+              : 'Cycle Phase'}
+
+            {cycleDay != null
+              ? ` • Day ${cycleDay}`
+              : ''}
+          </Text>
+
         </View>
       </View>
+
+      {/* ========================================================
+          AZUKA DAILY GUIDANCE
+          ======================================================== */}
 
       <Text style={styles.orchestratorMessage}>
         {displayMessage}
       </Text>
+
     </View>
   );
 }

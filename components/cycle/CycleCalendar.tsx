@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   Palette,
   GlobalStyles,
-} from '@/constants/Styles';
+} from '../../constants/Styles';
 
 import { DailyData } from './types';
 import { styles } from './styles';

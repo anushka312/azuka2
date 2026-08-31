@@ -1,7 +1,14 @@
+
 import React, { useState } from 'react';
-import { View, Text, Modal, TouchableOpacity, Pressable } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { Palette } from '../../constants/Styles';
+
+import {
+  View,
+  Text,
+  Modal,
+  TouchableOpacity,
+  Pressable,
+} from 'react-native';
+
 import { styles } from './styles';
 
 type Props = {
@@ -10,57 +17,94 @@ type Props = {
   onSave: (hours: string) => void;
 };
 
-export function SleepLogModal({ visible, onClose, onSave }: Props) {
-  const [selectedHours, setSelectedHours] = useState('7.5 hrs');
-  const [quality, setQuality] = useState('Restful');
+const SLEEP_OPTIONS = [
+  '< 6 hrs',
+  '6-7 hrs',
+  '7.5 hrs',
+  '8+ hrs',
+];
+
+export function SleepLogModal({
+  visible,
+  onClose,
+  onSave,
+}: Props) {
+  const [selectedHours, setSelectedHours] =
+    useState('7.5 hrs');
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
       <View style={styles.modalOverlay}>
-        <Pressable style={{ flex: 1 }} onPress={onClose} />
+
+        {/* Close modal when tapping outside */}
+        <Pressable
+          style={{ flex: 1 }}
+          onPress={onClose}
+        />
+
         <View style={styles.modalContent}>
+
           <View style={styles.modalHandle} />
 
-          <Text style={styles.modalTitle}>Log Recovery & Sleep</Text>
-          <Text style={styles.modalSubtitle}>
-            Feeds Tier 1 Nervous System Interpreter to auto-scale daily volume.
+          <Text style={styles.modalTitle}>
+            Log Sleep
           </Text>
 
-          {/* DURATION */}
+          <Text style={styles.modalSubtitle}>
+            Your sleep duration helps Azuka assess
+            recovery capacity and daily training load.
+          </Text>
+
+          {/* =====================================================
+              SLEEP DURATION
+              ===================================================== */}
+
           <View style={styles.selectorGroup}>
-            <Text style={styles.fieldLabel}>Sleep Duration</Text>
+            <Text style={styles.fieldLabel}>
+              Sleep Duration
+            </Text>
+
             <View style={styles.chipRow}>
-              {['< 6 hrs', '6-7 hrs', '7.5 hrs', '8+ hrs'].map(val => (
-                <TouchableOpacity
-                  key={val}
-                  style={[styles.chipOption, selectedHours === val && styles.chipOptionSelected]}
-                  onPress={() => setSelectedHours(val)}
-                >
-                  <Text style={[styles.chipText, selectedHours === val && styles.chipTextSelected]}>
-                    {val}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {SLEEP_OPTIONS.map((value) => {
+                const selected =
+                  selectedHours === value;
+
+                return (
+                  <TouchableOpacity
+                    key={value}
+                    style={[
+                      styles.chipOption,
+                      selected &&
+                        styles.chipOptionSelected,
+                    ]}
+                    onPress={() =>
+                      setSelectedHours(value)
+                    }
+                    activeOpacity={0.75}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        selected &&
+                          styles.chipTextSelected,
+                      ]}
+                    >
+                      {value}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
 
-          {/* QUALITY */}
-          <View style={styles.selectorGroup}>
-            <Text style={styles.fieldLabel}>Perceived Quality</Text>
-            <View style={styles.chipRow}>
-              {['Restless', 'Fair', 'Restful'].map(val => (
-                <TouchableOpacity
-                  key={val}
-                  style={[styles.chipOption, quality === val && styles.chipOptionSelected]}
-                  onPress={() => setQuality(val)}
-                >
-                  <Text style={[styles.chipText, quality === val && styles.chipTextSelected]}>
-                    {val}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
+          {/* =====================================================
+              SAVE
+              ===================================================== */}
 
           <TouchableOpacity
             style={styles.saveButton}
@@ -68,11 +112,16 @@ export function SleepLogModal({ visible, onClose, onSave }: Props) {
               onSave(selectedHours);
               onClose();
             }}
+            activeOpacity={0.8}
           >
-            <Text style={styles.saveButtonText}>Recalculate Decision Loop</Text>
+            <Text style={styles.saveButtonText}>
+              Log Sleep
+            </Text>
           </TouchableOpacity>
+
         </View>
       </View>
     </Modal>
   );
 }
+

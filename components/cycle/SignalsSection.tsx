@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from "react";
 
 import {
   Modal,
@@ -6,41 +6,40 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 
-import { Ionicons } from '@expo/vector-icons';
-
-import { GlobalStyles, Palette } from '@/constants/Styles';
+import { Ionicons } from "@expo/vector-icons";
 
 import {
-  FlowRate,
-  LoggedSymptom,
-  SymptomCategory,
-} from './types';
+  GlobalStyles,
+  Palette,
+} from "@/constants/Styles";
 
-import { styles } from './styles';
+import { styles } from "./styles";
 
-type Props = {
-  symptoms?: LoggedSymptom[];
+import {
+  DailyState,
+} from "@/services/api";
 
-  activePeriod?: {
-    isPeriodActive: boolean;
-    currentFlow?: FlowRate;
-    startDate?: string;
-  };
+import { useAzuka } from "@/contexts/AzukaContext";
 
-  onRecordSave?: (data: {
-    symptoms: LoggedSymptom[];
+// ============================================================
+// TYPES
+// ============================================================
 
-    period: {
-      isPeriodActive: boolean;
-      flowRate?: FlowRate;
-      endedToday?: boolean;
-      startDate?: string;
-      estimatedEndDate?: string;
-    };
-  }) => void;
-};
+type SymptomCategory =
+  | "Pain"
+  | "Energy"
+  | "Digestive"
+  | "Appetite"
+  | "Mood"
+  | "Physical";
+
+type FlowRate =
+  | "Spotting"
+  | "Light"
+  | "Medium"
+  | "Heavy";
 
 type SymptomOption = {
   id: string;
@@ -49,468 +48,585 @@ type SymptomOption = {
   icon: keyof typeof Ionicons.glyphMap;
 };
 
-const MOCK_PERIOD_DURATION_DAYS = 5;
-
-const FLOW_OPTIONS: FlowRate[] = [
-  'Spotting',
-  'Light',
-  'Medium',
-  'Heavy',
-];
+// ============================================================
+// SYMPTOMS
+// ============================================================
 
 const SYMPTOMS: SymptomOption[] = [
-  /* PAIN */
+  // PAIN
   {
-    id: 'cramps',
-    name: 'Cramps',
-    category: 'Pain',
-    icon: 'flash-outline',
+    id: "cramps",
+    name: "Cramps",
+    category: "Pain",
+    icon: "flash-outline",
   },
   {
-    id: 'headache',
-    name: 'Headache',
-    category: 'Pain',
-    icon: 'headset-outline',
+    id: "headache",
+    name: "Headache",
+    category: "Pain",
+    icon: "headset-outline",
   },
   {
-    id: 'back-pain',
-    name: 'Lower back pain',
-    category: 'Pain',
-    icon: 'body-outline',
+    id: "back-pain",
+    name: "Lower back pain",
+    category: "Pain",
+    icon: "body-outline",
   },
   {
-    id: 'pelvic-pain',
-    name: 'Pelvic pain',
-    category: 'Pain',
-    icon: 'fitness-outline',
-  },
-
-  /* ENERGY */
-  {
-    id: 'fatigue',
-    name: 'Fatigue',
-    category: 'Energy',
-    icon: 'battery-half-outline',
-  },
-  {
-    id: 'low-energy',
-    name: 'Low energy',
-    category: 'Energy',
-    icon: 'battery-dead-outline',
-  },
-  {
-    id: 'sleepy',
-    name: 'Sleepiness',
-    category: 'Energy',
-    icon: 'moon-outline',
+    id: "pelvic-pain",
+    name: "Pelvic pain",
+    category: "Pain",
+    icon: "fitness-outline",
   },
 
-  /* DIGESTIVE */
+  // ENERGY
   {
-    id: 'bloating',
-    name: 'Bloating',
-    category: 'Digestive',
-    icon: 'water-outline',
+    id: "fatigue",
+    name: "Fatigue",
+    category: "Energy",
+    icon: "battery-half-outline",
   },
   {
-    id: 'nausea',
-    name: 'Nausea',
-    category: 'Digestive',
-    icon: 'medical-outline',
+    id: "low-energy",
+    name: "Low energy",
+    category: "Energy",
+    icon: "battery-dead-outline",
   },
   {
-    id: 'constipation',
-    name: 'Constipation',
-    category: 'Digestive',
-    icon: 'remove-circle-outline',
-  },
-  {
-    id: 'diarrhea',
-    name: 'Diarrhea',
-    category: 'Digestive',
-    icon: 'water-outline',
+    id: "sleepy",
+    name: "Sleepiness",
+    category: "Energy",
+    icon: "moon-outline",
   },
 
-  /* APPETITE */
+  // DIGESTIVE
   {
-    id: 'cravings',
-    name: 'Food cravings',
-    category: 'Appetite',
-    icon: 'restaurant-outline',
+    id: "bloating",
+    name: "Bloating",
+    category: "Digestive",
+    icon: "water-outline",
   },
   {
-    id: 'increased-appetite',
-    name: 'Increased appetite',
-    category: 'Appetite',
-    icon: 'fast-food-outline',
+    id: "nausea",
+    name: "Nausea",
+    category: "Digestive",
+    icon: "medical-outline",
   },
   {
-    id: 'low-appetite',
-    name: 'Low appetite',
-    category: 'Appetite',
-    icon: 'nutrition-outline',
-  },
-
-  /* MOOD */
-  {
-    id: 'irritable',
-    name: 'Irritability',
-    category: 'Mood',
-    icon: 'alert-circle-outline',
+    id: "constipation",
+    name: "Constipation",
+    category: "Digestive",
+    icon: "remove-circle-outline",
   },
   {
-    id: 'anxious',
-    name: 'Feeling anxious',
-    category: 'Mood',
-    icon: 'pulse-outline',
-  },
-  {
-    id: 'low-mood',
-    name: 'Low mood',
-    category: 'Mood',
-    icon: 'cloud-outline',
-  },
-  {
-    id: 'mood-swings',
-    name: 'Mood swings',
-    category: 'Mood',
-    icon: 'swap-vertical-outline',
+    id: "diarrhea",
+    name: "Diarrhea",
+    category: "Digestive",
+    icon: "water-outline",
   },
 
-  /* PHYSICAL */
+  // APPETITE
   {
-    id: 'breast-tenderness',
-    name: 'Breast tenderness',
-    category: 'Physical',
-    icon: 'heart-outline',
+    id: "cravings",
+    name: "Food cravings",
+    category: "Appetite",
+    icon: "restaurant-outline",
   },
   {
-    id: 'soreness',
-    name: 'Muscle soreness',
-    category: 'Physical',
-    icon: 'barbell-outline',
+    id: "increased-appetite",
+    name: "Increased appetite",
+    category: "Appetite",
+    icon: "fast-food-outline",
   },
   {
-    id: 'dizziness',
-    name: 'Dizziness',
-    category: 'Physical',
-    icon: 'refresh-outline',
+    id: "low-appetite",
+    name: "Low appetite",
+    category: "Appetite",
+    icon: "nutrition-outline",
+  },
+
+  // MOOD
+  {
+    id: "irritable",
+    name: "Irritability",
+    category: "Mood",
+    icon: "alert-circle-outline",
   },
   {
-    id: 'hot-flashes',
-    name: 'Feeling unusually warm',
-    category: 'Physical',
-    icon: 'sunny-outline',
+    id: "anxious",
+    name: "Feeling anxious",
+    category: "Mood",
+    icon: "pulse-outline",
+  },
+  {
+    id: "low-mood",
+    name: "Low mood",
+    category: "Mood",
+    icon: "cloud-outline",
+  },
+  {
+    id: "mood-swings",
+    name: "Mood swings",
+    category: "Mood",
+    icon: "swap-vertical-outline",
+  },
+
+  // PHYSICAL
+  {
+    id: "breast-tenderness",
+    name: "Breast tenderness",
+    category: "Physical",
+    icon: "heart-outline",
+  },
+  {
+    id: "soreness",
+    name: "Muscle soreness",
+    category: "Physical",
+    icon: "barbell-outline",
+  },
+  {
+    id: "dizziness",
+    name: "Dizziness",
+    category: "Physical",
+    icon: "refresh-outline",
+  },
+  {
+    id: "hot-flashes",
+    name: "Feeling unusually warm",
+    category: "Physical",
+    icon: "sunny-outline",
   },
 ];
 
+// ============================================================
+// CATEGORIES
+// ============================================================
+
 const CATEGORIES: SymptomCategory[] = [
-  'Pain',
-  'Energy',
-  'Digestive',
-  'Appetite',
-  'Mood',
-  'Physical',
+  "Pain",
+  "Energy",
+  "Digestive",
+  "Appetite",
+  "Mood",
+  "Physical",
 ];
 
 const CATEGORY_ICONS: Record<
   SymptomCategory,
   keyof typeof Ionicons.glyphMap
 > = {
-  Pain: 'bandage-outline',
-  Energy: 'battery-half-outline',
-  Digestive: 'water-outline',
-  Appetite: 'restaurant-outline',
-  Mood: 'happy-outline',
-  Physical: 'body-outline',
-  Other: 'help-circle-outline',
+  Pain: "bandage-outline",
+  Energy: "battery-half-outline",
+  Digestive: "water-outline",
+  Appetite: "restaurant-outline",
+  Mood: "happy-outline",
+  Physical: "body-outline",
 };
 
-/**
- * Makes sure only ONE Appetite symptom can exist.
- *
- * All other symptoms remain untouched.
- */
-const normalizeSymptoms = (
-  symptoms: LoggedSymptom[]
-): LoggedSymptom[] => {
-  const nonAppetiteSymptoms = symptoms.filter(
-    symptom => symptom.category !== 'Appetite'
-  );
+// ============================================================
+// HELPERS
+// ============================================================
 
-  const appetiteSymptoms = symptoms.filter(
-    symptom => symptom.category === 'Appetite'
-  );
+const getTodayDate = () => {
+  const today = new Date();
 
-  // Keep only the first Appetite option if old data
-  // happens to contain multiple appetite symptoms.
-  const selectedAppetite = appetiteSymptoms[0];
+  const year = today.getFullYear();
 
-  return selectedAppetite
-    ? [...nonAppetiteSymptoms, selectedAppetite]
-    : nonAppetiteSymptoms;
+  const month = String(
+    today.getMonth() + 1
+  ).padStart(2, "0");
+
+  const day = String(
+    today.getDate()
+  ).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 };
 
-export default function SignalsSection({
-  symptoms = [],
-  activePeriod = { isPeriodActive: false },
-  onRecordSave,
-}: Props) {
-  const [modalVisible, setModalVisible] = useState(false);
+// Convert MongoDB/context symptom object
+// into an array of symptom IDs for UI selection.
+const getSelectedSymptomIds = (
+  symptoms?: DailyState["symptoms"]
+): string[] => {
+  if (!symptoms) {
+    return [];
+  }
+
+  return [
+    ...(symptoms.pain ?? []),
+    ...(symptoms.energy ?? []),
+    ...(symptoms.digestive ?? []),
+    ...(symptoms.appetite
+      ? [symptoms.appetite]
+      : []),
+    ...(symptoms.mood ?? []),
+    ...(symptoms.physical ?? []),
+  ];
+};
+
+// ============================================================
+// COMPONENT
+// ============================================================
+
+export default function SignalsSection() {
+  // ==========================================================
+  // AZUKA CONTEXT
+  // ==========================================================
+
+  const {
+    dailyState,
+    saveDailyCheckIn,
+  } = useAzuka();
+
+  // ==========================================================
+  // UI STATE
+  // ==========================================================
+
+  const [modalVisible, setModalVisible] =
+    useState(false);
+
+  const [activeCategory, setActiveCategory] =
+    useState<SymptomCategory>("Pain");
 
   const [selectedSymptoms, setSelectedSymptoms] =
-    useState<LoggedSymptom[]>(
-      normalizeSymptoms(symptoms)
-    );
-
-  // --------------------------------------------------
-  // PERIOD TRACKING STATE
-  // --------------------------------------------------
-
-  const [periodStartDate, setPeriodStartDate] =
-    useState<Date | null>(
-      activePeriod.startDate
-        ? new Date(activePeriod.startDate)
-        : null
-    );
-
-  const [isPeriodActive, setIsPeriodActive] =
-    useState(activePeriod.isPeriodActive);
+    useState<string[]>([]);
 
   const [flowRate, setFlowRate] =
     useState<FlowRate | undefined>(
-      activePeriod.currentFlow ?? 'Medium'
+      undefined
     );
 
-  const [endedToday, setEndedToday] = useState(false);
+  const [isPeriodActive, setIsPeriodActive] =
+    useState(false);
 
-  // --------------------------------------------------
-  // MODAL CATEGORY & SYMPTOM DETAIL STATES
-  // --------------------------------------------------
+  const [endedToday, setEndedToday] =
+    useState(false);
 
-  const [activeCategory, setActiveCategory] =
-    useState<SymptomCategory>('Pain');
+  const [periodStartDate, setPeriodStartDate] =
+    useState<string | undefined>(undefined);
 
-  const [editingSymptom, setEditingSymptom] =
-    useState<LoggedSymptom | null>(null);
+  const [saving, setSaving] =
+    useState(false);
 
-  const [detail, setDetail] = useState('');
+  // ==========================================================
+  // CONTEXT → UI
+  //
+  // Whenever dailyState changes, update the
+  // temporary modal state from Context.
+  // ==========================================================
 
-  // --------------------------------------------------
-  // OPEN LOGGER
-  // --------------------------------------------------
-
-  const openLogger = () => {
-    // Normalize existing symptoms here too.
-    // This protects against old data containing
-    // multiple Appetite selections.
+  useEffect(() => {
     setSelectedSymptoms(
-      normalizeSymptoms(symptoms)
+      getSelectedSymptomIds(
+        dailyState?.symptoms
+      )
     );
 
     setIsPeriodActive(
-      activePeriod.isPeriodActive
+      dailyState?.period
+        ?.is_period_active ?? false
     );
 
     setFlowRate(
-      activePeriod.currentFlow ?? 'Medium'
+      dailyState?.period
+        ?.flow_rate as FlowRate | undefined
+    );
+
+    setEndedToday(
+      dailyState?.period
+        ?.ended_today ?? false
     );
 
     setPeriodStartDate(
-      activePeriod.startDate
-        ? new Date(activePeriod.startDate)
-        : null
+      dailyState?.period?.start_date
+    );
+  }, [dailyState]);
+
+  // ==========================================================
+  // OPEN LOGGER
+  // ==========================================================
+
+  const openLogger = () => {
+    // Re-read everything from Context
+    // when opening the modal.
+
+    setSelectedSymptoms(
+      getSelectedSymptomIds(
+        dailyState?.symptoms
+      )
     );
 
-    setEndedToday(false);
+    setIsPeriodActive(
+      dailyState?.period
+        ?.is_period_active ?? false
+    );
+
+    setFlowRate(
+      dailyState?.period
+        ?.flow_rate as FlowRate | undefined
+    );
+
+    setEndedToday(
+      dailyState?.period
+        ?.ended_today ?? false
+    );
+
+    setPeriodStartDate(
+      dailyState?.period?.start_date
+    );
 
     setModalVisible(true);
   };
 
-  // --------------------------------------------------
+  // ==========================================================
   // TOGGLE SYMPTOM
-  // --------------------------------------------------
+  // ==========================================================
 
-  const toggleSymptom = (symptom: SymptomOption) => {
-  const existing = selectedSymptoms.find(
-    item => item.id === symptom.id
-  );
+  const toggleSymptom = (
+    symptom: SymptomOption
+  ) => {
+    const alreadySelected =
+      selectedSymptoms.includes(
+        symptom.id
+      );
 
-  // ----------------------------------------------
-  // IF ALREADY SELECTED -> DESELECT IT
-  // ----------------------------------------------
-  if (existing) {
-    setSelectedSymptoms(
-      selectedSymptoms.filter(
-        item => item.id !== symptom.id
-      )
-    );
-    
-    // Clear editing state if this was the one being edited
-    if (editingSymptom?.id === symptom.id) {
-      setEditingSymptom(null);
-      setDetail('');
+    // Remove
+    if (alreadySelected) {
+      setSelectedSymptoms(
+        selectedSymptoms.filter(
+          (id) => id !== symptom.id
+        )
+      );
+
+      return;
     }
-    return;
-  }
 
-  // ----------------------------------------------
-  // CREATE NEW SYMPTOM
-  // ----------------------------------------------
-  const newSymptom: LoggedSymptom = {
-    id: symptom.id,
-    name: symptom.name,
-    category: symptom.category,
-  };
+    // Appetite is single-select.
+    if (
+      symptom.category === "Appetite"
+    ) {
+      const nonAppetite =
+        selectedSymptoms.filter(
+          (id) => {
+            const option =
+              SYMPTOMS.find(
+                (item) =>
+                  item.id === id
+              );
 
-  // ----------------------------------------------
-  // APPETITE = SINGLE SELECT
-  // ----------------------------------------------
-  if (symptom.category === 'Appetite') {
+            return (
+              option?.category !==
+              "Appetite"
+            );
+          }
+        );
+
+      setSelectedSymptoms([
+        ...nonAppetite,
+        symptom.id,
+      ]);
+
+      return;
+    }
+
+    // All other categories are multi-select.
     setSelectedSymptoms([
-      ...selectedSymptoms.filter(
-        item => item.category !== 'Appetite'
-      ),
-      newSymptom,
+      ...selectedSymptoms,
+      symptom.id,
     ]);
-    return;
-  }
-
-  // ----------------------------------------------
-  // EVERYTHING ELSE = MULTI SELECT
-  // ----------------------------------------------
-  setSelectedSymptoms([
-    ...selectedSymptoms,
-    newSymptom,
-  ]);
-};
-
-  // --------------------------------------------------
-  // SAVE SYMPTOM DETAIL
-  // --------------------------------------------------
-
-  const saveSymptomDetail = () => {
-    if (!editingSymptom) return;
-
-    const updated = selectedSymptoms.map(
-      symptom =>
-        symptom.id === editingSymptom.id
-          ? {
-              ...symptom,
-              detail:
-                detail.trim() || undefined,
-            }
-          : symptom
-    );
-
-    setSelectedSymptoms(updated);
-
-    setEditingSymptom(null);
-    setDetail('');
   };
 
-  // --------------------------------------------------
-  // REMOVE SYMPTOM
-  // --------------------------------------------------
-
-  const removeSymptom = (id: string) => {
-    setSelectedSymptoms(
-      selectedSymptoms.filter(
-        symptom => symptom.id !== id
-      )
-    );
-
-    setEditingSymptom(null);
-  };
-
-  // --------------------------------------------------
+  // ==========================================================
   // START PERIOD
-  // --------------------------------------------------
+  // ==========================================================
 
   const handleStartPeriod = () => {
-    const today = new Date();
+    const today =
+      getTodayDate();
 
-    setPeriodStartDate(today);
     setIsPeriodActive(true);
+
     setEndedToday(false);
 
-    if (!flowRate) {
-      setFlowRate('Medium');
-    }
+    setFlowRate(
+      flowRate ?? "Medium"
+    );
+
+    setPeriodStartDate(today);
   };
 
-  // --------------------------------------------------
+  // ==========================================================
   // END PERIOD
-  // --------------------------------------------------
+  // ==========================================================
 
   const handleEndPeriod = () => {
     setIsPeriodActive(false);
+
     setEndedToday(true);
+
     setFlowRate(undefined);
-    setPeriodStartDate(null);
   };
 
-  // --------------------------------------------------
-  // SAVE RECORD
-  // --------------------------------------------------
+  // ==========================================================
+  // BUILD SYMPTOMS OBJECT
+  //
+  // Converts UI IDs into the exact structure
+  // used by DAILY_STATES.
+  // ==========================================================
 
-  const saveRecord = () => {
-    const estimatedEnd = periodStartDate
-      ? new Date(
-          periodStartDate.getTime() +
-            (MOCK_PERIOD_DURATION_DAYS - 1) *
-              86400000
-        )
-      : undefined;
+  const buildSymptomsObject =
+    (): NonNullable<
+      DailyState["symptoms"]
+    > => {
+      const result: NonNullable<
+        DailyState["symptoms"]
+      > = {};
 
-    onRecordSave?.({
-      symptoms: selectedSymptoms,
+      selectedSymptoms.forEach(
+        (id) => {
+          const symptom =
+            SYMPTOMS.find(
+              (item) =>
+                item.id === id
+            );
 
-      period: {
-        isPeriodActive,
-        flowRate: isPeriodActive
-          ? flowRate
-          : undefined,
-        endedToday,
-        startDate: periodStartDate
-          ? periodStartDate.toISOString()
-          : undefined,
-        estimatedEndDate: estimatedEnd
-          ? estimatedEnd.toISOString()
-          : undefined,
-      },
-    });
+          if (!symptom) {
+            return;
+          }
 
-    setModalVisible(false);
+          switch (
+            symptom.category
+          ) {
+            case "Pain":
+              result.pain = [
+                ...(result.pain ?? []),
+                id,
+              ];
+              break;
+
+            case "Energy":
+              result.energy = [
+                ...(result.energy ?? []),
+                id,
+              ];
+              break;
+
+            case "Digestive":
+              result.digestive = [
+                ...(result.digestive ?? []),
+                id,
+              ];
+              break;
+
+            case "Appetite":
+              result.appetite = id;
+              break;
+
+            case "Mood":
+              result.mood = [
+                ...(result.mood ?? []),
+                id,
+              ];
+              break;
+
+            case "Physical":
+              result.physical = [
+                ...(result.physical ?? []),
+                id,
+              ];
+              break;
+          }
+        }
+      );
+
+      return result;
+    };
+
+  // ==========================================================
+  // SAVE
+  // ==========================================================
+
+  const saveRecord = async () => {
+    if (saving) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const symptoms =
+        buildSymptomsObject();
+
+      const today =
+        getTodayDate();
+
+      await saveDailyCheckIn(
+        {
+          symptoms,
+
+          period: {
+            is_period_active:
+              isPeriodActive,
+
+            flow_rate:
+              isPeriodActive
+                ? flowRate
+                : undefined,
+
+            started_today:
+              periodStartDate ===
+              today,
+
+            ended_today:
+              endedToday,
+
+            start_date:
+              periodStartDate,
+
+            estimated_end_date:
+              dailyState?.period
+                ?.estimated_end_date,
+          },
+        },
+        today
+      );
+
+      setModalVisible(false);
+    } catch (error) {
+      console.error(
+        "Failed to save check-in:",
+        error
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // --------------------------------------------------
-  // CURRENT CATEGORY SYMPTOMS
-  // --------------------------------------------------
-
-  const categorySymptoms = SYMPTOMS.filter(
-    symptom =>
-      symptom.category === activeCategory
-  );
-
-  // --------------------------------------------------
-  // HAS LOGGED DATA
-  // --------------------------------------------------
+  // ==========================================================
+  // DERIVED DATA FROM CONTEXT
+  // ==========================================================
 
   const hasLoggedData =
     selectedSymptoms.length > 0 ||
     isPeriodActive ||
     endedToday;
 
-  // --------------------------------------------------
+  const categorySymptoms =
+    SYMPTOMS.filter(
+      (symptom) =>
+        symptom.category ===
+        activeCategory
+    );
+
+  // ==========================================================
   // RENDER
-  // --------------------------------------------------
+  // ==========================================================
 
   return (
     <>
-      {/* ==================================================
-          MAIN DASHBOARD CARD
-          ================================================== */}
+      {/* ================================================== */}
+      {/* MAIN DASHBOARD CARD */}
+      {/* ================================================== */}
 
       <View
         style={[
@@ -518,18 +634,30 @@ export default function SignalsSection({
           styles.sectionCard,
         ]}
       >
-        <View style={styles.sectionHeader}>
+        <View
+          style={styles.sectionHeader}
+        >
           <View>
-            <Text style={styles.sectionTitle}>
+            <Text
+              style={
+                styles.sectionTitle
+              }
+            >
               Today's body check-in
             </Text>
 
-            <Text style={styles.sectionSubtitle}>
+            <Text
+              style={
+                styles.sectionSubtitle
+              }
+            >
               Track flow & symptoms
             </Text>
           </View>
 
-          <View style={styles.loggerIcon}>
+          <View
+            style={styles.loggerIcon}
+          >
             <Ionicons
               name="body-outline"
               size={20}
@@ -539,49 +667,89 @@ export default function SignalsSection({
         </View>
 
         {!hasLoggedData ? (
-          <View style={styles.loggerEmpty}>
-            <View style={styles.loggerEmptyIcon}>
+          <View
+            style={
+              styles.loggerEmpty
+            }
+          >
+            <View
+              style={
+                styles.loggerEmptyIcon
+              }
+            >
               <Ionicons
                 name="leaf-outline"
                 size={25}
-                color={Palette.forestGreen}
+                color={
+                  Palette.forestGreen
+                }
               />
             </View>
 
-            <Text style={styles.loggerEmptyTitle}>
+            <Text
+              style={
+                styles.loggerEmptyTitle
+              }
+            >
               No record logged
             </Text>
 
-            <Text style={styles.loggerEmptyText}>
-              Take a moment to check in with your body
-              today.
+            <Text
+              style={
+                styles.loggerEmptyText
+              }
+            >
+              Take a moment to check
+              in with your body today.
             </Text>
 
             <TouchableOpacity
-              style={styles.logButton}
+              style={
+                styles.logButton
+              }
               onPress={openLogger}
               activeOpacity={0.8}
             >
               <Ionicons
                 name="add"
                 size={17}
-                color={Palette.surfaceWhite}
+                color={
+                  Palette.surfaceWhite
+                }
               />
 
-              <Text style={styles.logButtonText}>
+              <Text
+                style={
+                  styles.logButtonText
+                }
+              >
                 Log today's check-in
               </Text>
             </TouchableOpacity>
           </View>
         ) : (
           <View>
-            <View style={styles.loggedSummary}>
-              <View style={styles.loggedSummaryLeft}>
-                <View style={styles.loggedCheck}>
+            <View
+              style={
+                styles.loggedSummary
+              }
+            >
+              <View
+                style={
+                  styles.loggedSummaryLeft
+                }
+              >
+                <View
+                  style={
+                    styles.loggedCheck
+                  }
+                >
                   <Ionicons
                     name="checkmark"
                     size={15}
-                    color={Palette.forestGreen}
+                    color={
+                      Palette.forestGreen
+                    }
                   />
                 </View>
 
@@ -592,24 +760,25 @@ export default function SignalsSection({
                     }
                   >
                     {isPeriodActive
-                      ? 'Period Active'
+                      ? "Period Active"
                       : endedToday
-                      ? 'Period Ended'
-                      : ''}
-
+                      ? "Period Ended"
+                      : ""}
                     {(isPeriodActive ||
                       endedToday) &&
-                    selectedSymptoms.length > 0
-                      ? ' • '
-                      : ''}
-
-                    {selectedSymptoms.length > 0
+                    selectedSymptoms.length >
+                      0
+                      ? " • "
+                      : ""}
+                    {selectedSymptoms.length >
+                    0
                       ? `${selectedSymptoms.length} ${
-                          selectedSymptoms.length === 1
-                            ? 'symptom'
-                            : 'symptoms'
+                          selectedSymptoms.length ===
+                          1
+                            ? "symptom"
+                            : "symptoms"
                         }`
-                      : ''}
+                      : ""}
                   </Text>
 
                   <Text
@@ -626,15 +795,21 @@ export default function SignalsSection({
                 onPress={openLogger}
                 activeOpacity={0.7}
               >
-                <Text style={styles.editText}>
+                <Text
+                  style={
+                    styles.editText
+                  }
+                >
                   Edit
                 </Text>
               </TouchableOpacity>
             </View>
 
-            {/* SYMPTOM & FLOW CHIPS */}
-
-            <View style={styles.loggedSymptoms}>
+            <View
+              style={
+                styles.loggedSymptoms
+              }
+            >
               {isPeriodActive && (
                 <View
                   style={[
@@ -648,7 +823,9 @@ export default function SignalsSection({
                   <Ionicons
                     name="water"
                     size={12}
-                    color={Palette.crimson}
+                    color={
+                      Palette.crimson
+                    }
                   />
 
                   <Text
@@ -660,49 +837,69 @@ export default function SignalsSection({
                       },
                     ]}
                   >
-                    Flow: {flowRate ?? 'Logged'}
+                    Flow:{" "}
+                    {flowRate ??
+                      "Logged"}
                   </Text>
                 </View>
               )}
 
               {selectedSymptoms
                 .slice(0, 3)
-                .map(symptom => (
-                  <View
-                    key={symptom.id}
-                    style={styles.loggedChip}
-                  >
-                    <Ionicons
-                      name={
-                        SYMPTOMS.find(
-                          option =>
-                            option.id ===
-                            symptom.id
-                        )?.icon ??
-                        'ellipse-outline'
-                      }
-                      size={12}
-                      color={Palette.oceanBlue}
-                    />
+                .map((id) => {
+                  const symptom =
+                    SYMPTOMS.find(
+                      (item) =>
+                        item.id === id
+                    );
 
-                    <Text
+                  if (!symptom) {
+                    return null;
+                  }
+
+                  return (
+                    <View
+                      key={id}
                       style={
-                        styles.loggedChipText
+                        styles.loggedChip
                       }
                     >
-                      {symptom.name}
-                    </Text>
-                  </View>
-                ))}
+                      <Ionicons
+                        name={
+                          symptom.icon
+                        }
+                        size={12}
+                        color={
+                          Palette.oceanBlue
+                        }
+                      />
 
-              {selectedSymptoms.length > 3 && (
-                <View style={styles.moreChip}>
+                      <Text
+                        style={
+                          styles.loggedChipText
+                        }
+                      >
+                        {symptom.name}
+                      </Text>
+                    </View>
+                  );
+                })}
+
+              {selectedSymptoms.length >
+                3 && (
+                <View
+                  style={
+                    styles.moreChip
+                  }
+                >
                   <Text
                     style={
                       styles.moreChipText
                     }
                   >
-                    +{selectedSymptoms.length - 3}
+                    +
+                    {selectedSymptoms.length -
+                      3}
                   </Text>
                 </View>
               )}
@@ -726,16 +923,18 @@ export default function SignalsSection({
               <Ionicons
                 name="chevron-forward"
                 size={16}
-                color={Palette.oceanBlue}
+                color={
+                  Palette.oceanBlue
+                }
               />
             </TouchableOpacity>
           </View>
         )}
       </View>
 
-      {/* ==================================================
-          DAILY CHECK-IN MODAL
-          ================================================== */}
+      {/* ================================================== */}
+      {/* CHECK-IN MODAL */}
+      {/* ================================================== */}
 
       <Modal
         visible={modalVisible}
@@ -745,29 +944,56 @@ export default function SignalsSection({
           setModalVisible(false)
         }
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.symptomModal}>
-            <View style={styles.sheetHandle} />
+        <View
+          style={
+            styles.modalOverlay
+          }
+        >
+          <View
+            style={
+              styles.symptomModal
+            }
+          >
+            <View
+              style={
+                styles.sheetHandle
+              }
+            />
 
             {/* HEADER */}
 
-            <View style={styles.sheetHeader}>
+            <View
+              style={
+                styles.sheetHeader
+              }
+            >
               <View>
-                <Text style={styles.sheetDate}>
+                <Text
+                  style={
+                    styles.sheetDate
+                  }
+                >
                   Daily Check-in
                 </Text>
 
                 <Text
-                  style={styles.sheetSubtitle}
+                  style={
+                    styles.sheetSubtitle
+                  }
                 >
-                  Log flow and body signals
+                  Log flow and body
+                  signals
                 </Text>
               </View>
 
               <TouchableOpacity
-                style={styles.closeButton}
+                style={
+                  styles.closeButton
+                }
                 onPress={() =>
-                  setModalVisible(false)
+                  setModalVisible(
+                    false
+                  )
                 }
               >
                 <Ionicons
@@ -785,9 +1011,9 @@ export default function SignalsSection({
                 false
               }
             >
-              {/* ==================================================
-                  MENSTRUAL FLOW
-                  ================================================== */}
+              {/* ================================================== */}
+              {/* MENSTRUAL FLOW */}
+              {/* ================================================== */}
 
               <Text
                 style={
@@ -813,7 +1039,9 @@ export default function SignalsSection({
                   <Ionicons
                     name="water-outline"
                     size={20}
-                    color={Palette.crimson}
+                    color={
+                      Palette.crimson
+                    }
                   />
 
                   <Text
@@ -825,13 +1053,16 @@ export default function SignalsSection({
                       },
                     ]}
                   >
-                    Period started today
+                    Period started
+                    today
                   </Text>
 
                   <Ionicons
                     name="add-circle-outline"
                     size={20}
-                    color={Palette.crimson}
+                    color={
+                      Palette.crimson
+                    }
                   />
                 </TouchableOpacity>
               ) : (
@@ -848,74 +1079,79 @@ export default function SignalsSection({
                       marginBottom: 8,
                     }}
                   >
-                    Select today's flow
-                    intensity:
+                    Select today's
+                    flow intensity:
                   </Text>
-
-                  {/* FLOW SELECTION */}
 
                   <View
                     style={{
-                      flexDirection: 'row',
+                      flexDirection:
+                        "row",
                       gap: 8,
                       marginBottom: 10,
                     }}
                   >
-                    {FLOW_OPTIONS.map(
-                      rate => {
-                        const active =
-                          flowRate === rate;
+                    {(
+                      [
+                        "Spotting",
+                        "Light",
+                        "Medium",
+                        "Heavy",
+                      ] as FlowRate[]
+                    ).map((rate) => {
+                      const active =
+                        flowRate ===
+                        rate;
 
-                        return (
-                          <TouchableOpacity
-                            key={rate}
+                      return (
+                        <TouchableOpacity
+                          key={rate}
+                          style={[
+                            styles.severityChip,
+                            {
+                              flex: 1,
+                              paddingVertical:
+                                10,
+                            },
+                            active && {
+                              backgroundColor:
+                                "#FCEEEE",
+                              borderColor:
+                                Palette.crimson,
+                            },
+                          ]}
+                          onPress={() =>
+                            setFlowRate(
+                              rate
+                            )
+                          }
+                        >
+                          <Text
                             style={[
-                              styles.severityChip,
-                              {
-                                flex: 1,
-                                paddingVertical: 10,
-                              },
+                              styles.severityText,
                               active && {
-                                backgroundColor:
-                                  '#FCEEEE',
-                                borderColor:
+                                color:
                                   Palette.crimson,
+                                fontWeight:
+                                  "600",
                               },
                             ]}
-                            onPress={() =>
-                              setFlowRate(
-                                rate
-                              )
-                            }
                           >
-                            <Text
-                              style={[
-                                styles.severityText,
-                                active && {
-                                  color:
-                                    Palette.crimson,
-                                  fontWeight:
-                                    '600',
-                                },
-                              ]}
-                            >
-                              {rate}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      }
-                    )}
+                            {rate}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
-
-                  {/* END PERIOD */}
 
                   <TouchableOpacity
                     style={{
-                      flexDirection: 'row',
+                      flexDirection:
+                        "row",
                       alignItems:
-                        'center',
+                        "center",
                       justifyContent:
-                        'center',
+                        "center",
                       paddingVertical: 8,
                     }}
                     onPress={
@@ -938,15 +1174,16 @@ export default function SignalsSection({
                         marginLeft: 6,
                       }}
                     >
-                      Period ended today
+                      Period ended
+                      today
                     </Text>
                   </TouchableOpacity>
                 </View>
               )}
 
-              {/* ==================================================
-                  SYMPTOM CATEGORIES
-                  ================================================== */}
+              {/* ================================================== */}
+              {/* SYMPTOMS */}
+              {/* ================================================== */}
 
               <Text
                 style={
@@ -966,14 +1203,16 @@ export default function SignalsSection({
                 }
               >
                 {CATEGORIES.map(
-                  category => {
+                  (category) => {
                     const active =
                       category ===
                       activeCategory;
 
                     return (
                       <TouchableOpacity
-                        key={category}
+                        key={
+                          category
+                        }
                         style={[
                           styles.categoryChip,
                           active &&
@@ -1014,27 +1253,23 @@ export default function SignalsSection({
                 )}
               </ScrollView>
 
-              {/* ==================================================
-                  SYMPTOM OPTIONS
-                  ================================================== */}
-
               <View
                 style={
                   styles.symptomOptionGrid
                 }
               >
                 {categorySymptoms.map(
-                  symptom => {
+                  (symptom) => {
                     const selected =
-                      selectedSymptoms.some(
-                        item =>
-                          item.id ===
-                          symptom.id
+                      selectedSymptoms.includes(
+                        symptom.id
                       );
 
                     return (
                       <TouchableOpacity
-                        key={symptom.id}
+                        key={
+                          symptom.id
+                        }
                         style={[
                           styles.symptomOption,
                           selected &&
@@ -1084,12 +1319,8 @@ export default function SignalsSection({
                 )}
               </View>
 
-              {/* ==================================================
-                  APPETITE HELPER TEXT
-                  ================================================== */}
-
               {activeCategory ===
-                'Appetite' && (
+                "Appetite" && (
                 <Text
                   style={{
                     fontSize: 12,
@@ -1097,7 +1328,7 @@ export default function SignalsSection({
                       Palette.textSecondary,
                     marginTop: 4,
                     marginBottom: 8,
-                    textAlign: 'center',
+                    textAlign: "center",
                   }}
                 >
                   Select one appetite
@@ -1105,18 +1336,24 @@ export default function SignalsSection({
                 </Text>
               )}
 
-              {/* ==================================================
-                  SAVE BUTTON
-                  ================================================== */}
+              {/* ================================================== */}
+              {/* SAVE */}
+              {/* ================================================== */}
 
               <TouchableOpacity
                 style={[
                   styles.saveRecordButton,
-                  !hasLoggedData &&
+                  (!hasLoggedData ||
+                    saving) &&
                     styles.saveRecordButtonDisabled,
                 ]}
-                disabled={!hasLoggedData}
-                onPress={saveRecord}
+                disabled={
+                  !hasLoggedData ||
+                  saving
+                }
+                onPress={
+                  saveRecord
+                }
                 activeOpacity={0.8}
               >
                 <Text
@@ -1124,7 +1361,9 @@ export default function SignalsSection({
                     styles.saveRecordText
                   }
                 >
-                  Save Check-in
+                  {saving
+                    ? "Saving..."
+                    : "Save Check-in"}
                 </Text>
 
                 <Ionicons
@@ -1145,16 +1384,6 @@ export default function SignalsSection({
           </View>
         </View>
       </Modal>
-
-      {/* ==================================================
-          SEVERITY ADJUSTMENT MODAL
-          ================================================== */}
-
-      {/* 
-        Your original file has this section commented/empty.
-        The editing state is still preserved above so you can
-        add the detail modal here if needed.
-      */}
     </>
   );
 }

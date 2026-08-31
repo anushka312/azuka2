@@ -1,88 +1,274 @@
-import React from 'react';
-import { Text, View } from 'react-native';
 
-import { GlobalStyles, Palette } from '@/constants/Styles';
-import { dailyData } from './data';
-import { styles } from './styles';
+import React, { useEffect } from "react";
+
+import { Text, View } from "react-native";
+
+import { GlobalStyles, Palette } from "@/constants/Styles";
+
+import { useAzuka } from "@/contexts/AzukaContext";
+
+import { styles } from "./styles";
+
+// ============================================================
+// TYPES
+// ============================================================
 
 interface PhaseCardProps {
   selectedDate?: string;
-  phase?: string;
-  cycleDay?: number;
-  cycleLength?: number;
-  progress?: number;
-  nextPeriod?: string;
-  badge?: string;
 }
 
-const phaseConfig: Record<string, { color: string; backgroundColor: string; badge: string }> = {
+// ============================================================
+// PHASE CONFIG
+// ============================================================
+
+const phaseConfig: Record<
+  string,
+  {
+    color: string;
+    backgroundColor: string;
+    badge: string;
+  }
+> = {
   Menstrual: {
     color: Palette.crimson,
     backgroundColor: Palette.surfaceCrimsonMuted,
-    badge: 'Recovery',
+    badge: "Recovery",
   },
+
   Follicular: {
     color: Palette.forestGreen,
     backgroundColor: Palette.surfaceGreenMuted,
-    badge: 'Build',
+    badge: "Build",
   },
+
   Ovulation: {
     color: Palette.marigold,
     backgroundColor: Palette.surfaceMarigoldMuted,
-    badge: 'Peak',
+    badge: "Peak",
   },
+
   Ovulatory: {
     color: Palette.marigold,
     backgroundColor: Palette.surfaceMarigoldMuted,
-    badge: 'Peak',
+    badge: "Peak",
   },
+
   Luteal: {
     color: Palette.oceanBlue,
     backgroundColor: Palette.surfaceBlueMuted,
-    badge: 'Balance',
+    badge: "Balance",
   },
-  'Late Luteal': {
+
+  "Late Luteal": {
     color: Palette.orange,
     backgroundColor: Palette.surfaceOrangeMuted,
-    badge: 'Recovery',
+    badge: "Recovery",
   },
 };
+
+// ============================================================
+// DATE HELPER
+// ============================================================
 
 const getTodayDate = () => {
   const today = new Date();
+
   const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
+
+  const month = String(
+    today.getMonth() + 1
+  ).padStart(2, "0");
+
+  const day = String(
+    today.getDate()
+  ).padStart(2, "0");
+
   return `${year}-${month}-${day}`;
 };
 
+// ============================================================
+// COMPONENT
+// ============================================================
+
 export default function PhaseCard({
   selectedDate,
-  phase: overridePhase,
-  cycleDay: overrideCycleDay,
-  cycleLength: overrideCycleLength,
-  progress: overrideProgress,
-  nextPeriod: overrideNextPeriod,
-  badge: overrideBadge,
 }: PhaseCardProps) {
-  const today = getTodayDate();
-  const dateToUse = selectedDate ?? today;
+  // ==========================================================
+  // AZUKA CONTEXT
+  // ==========================================================
 
-  let data = dailyData[dateToUse];
-  if (!data) {
-    const availableDates = Object.keys(dailyData).sort();
-    const latestDate = availableDates[availableDates.length - 1];
-    data = dailyData[latestDate];
+  const {
+    dailyState,
+    latestCycle,
+    isLoading,
+    refreshDailyData,
+  } = useAzuka();
+
+  // ==========================================================
+  // DATE
+  // ==========================================================
+
+  const dateToUse =
+    selectedDate ?? getTodayDate();
+
+  // ==========================================================
+  // LOAD DATA FOR SELECTED DATE
+  // ==========================================================
+
+  useEffect(() => {
+    if (!selectedDate) {
+      return;
+    }
+
+    refreshDailyData(selectedDate).catch(
+      (error) => {
+        console.error(
+          "Failed to load phase data:",
+          error
+        );
+      }
+    );
+  }, [
+    selectedDate,
+    refreshDailyData,
+  ]);
+
+  // ==========================================================
+  // PHASE
+  // ==========================================================
+
+  const currentPhase =
+    dailyState?.phase ?? "Luteal";
+
+  const config =
+    phaseConfig[currentPhase] ??
+    phaseConfig.Luteal;
+
+  // ==========================================================
+  // CYCLE INFORMATION
+  // ==========================================================
+
+  /*
+   * These values should come from your cycle data.
+   *
+   * Adjust the property names below if your
+   * CycleHistory interface uses different names.
+   */
+
+  const cycleStartDate =
+    latestCycle?.period_start_date;
+
+  const cycleLength =
+    latestCycle?.cycle_length ?? 28;
+
+  // ==========================================================
+  // CYCLE DAY
+  // ==========================================================
+
+  let cycleDay = 1;
+
+  if (cycleStartDate) {
+    const start = new Date(
+      `${cycleStartDate}T12:00:00`
+    );
+
+    const selected = new Date(
+      `${dateToUse}T12:00:00`
+    );
+
+    const difference =
+      Math.floor(
+        (selected.getTime() -
+          start.getTime()) /
+          (1000 * 60 * 60 * 24)
+      );
+
+    cycleDay = difference + 1;
+
+    if (cycleDay < 1) {
+      cycleDay = 1;
+    }
   }
 
-  const currentPhase = overridePhase || data?.phase || 'Luteal';
-  const currentDay = overrideCycleDay ?? data?.cycleDay ?? 22;
-  const currentLength = overrideCycleLength ?? data?.cycleLength ?? 28;
-  const currentProgress = overrideProgress ?? data?.progress ?? Math.round((currentDay / currentLength) * 100);
-  const currentNextPeriod = overrideNextPeriod ?? data?.nextPeriod ?? 'Period in ~6 days';
+  // ==========================================================
+  // PROGRESS
+  // ==========================================================
 
-  const config = phaseConfig[currentPhase] || phaseConfig['Luteal'];
-  const badgeLabel = overrideBadge || config.badge;
+  const progress = Math.min(
+    100,
+    Math.round(
+      (cycleDay / cycleLength) * 100
+    )
+  );
+
+  // ==========================================================
+  // NEXT PERIOD
+  // ==========================================================
+
+  let nextPeriod = "";
+
+  if (cycleStartDate) {
+    const start = new Date(
+      `${cycleStartDate}T12:00:00`
+    );
+
+    const nextPeriodDate =
+      new Date(start);
+
+    nextPeriodDate.setDate(
+      nextPeriodDate.getDate() +
+        cycleLength
+    );
+
+    const selected = new Date(
+      `${dateToUse}T12:00:00`
+    );
+
+    const daysUntil =
+      Math.ceil(
+        (nextPeriodDate.getTime() -
+          selected.getTime()) /
+          (1000 * 60 * 60 * 24)
+      );
+
+    if (daysUntil > 0) {
+      nextPeriod =
+        daysUntil === 1
+          ? "Period in ~1 day"
+          : `Period in ~${daysUntil} days`;
+    } else if (daysUntil === 0) {
+      nextPeriod = "Period expected today";
+    } else {
+      nextPeriod = "Period expected";
+    }
+  }
+
+  // ==========================================================
+  // LOADING
+  // ==========================================================
+
+  if (isLoading && !dailyState) {
+    return (
+      <View
+        style={[
+          GlobalStyles.cardElevated,
+          styles.phaseCard,
+        ]}
+      >
+        <Text style={styles.smallLabel}>
+          CURRENT PHASE
+        </Text>
+
+        <Text style={styles.phaseTitle}>
+          Loading...
+        </Text>
+      </View>
+    );
+  }
+
+  // ==========================================================
+  // RENDER
+  // ==========================================================
 
   return (
     <View
@@ -90,11 +276,15 @@ export default function PhaseCard({
         GlobalStyles.cardElevated,
         styles.phaseCard,
         {
-          backgroundColor: config.backgroundColor,
+          backgroundColor:
+            config.backgroundColor,
         },
       ]}
     >
-      {/* Header */}
+      {/* ==================================================
+          HEADER
+      ================================================== */}
+
       <View style={styles.phaseHeader}>
         <View>
           <Text style={styles.smallLabel}>
@@ -106,17 +296,21 @@ export default function PhaseCard({
           </Text>
 
           <Text style={styles.phaseSubtitle}>
-            Day {currentDay} of {currentLength}
+            Day {cycleDay} of {cycleLength}
           </Text>
         </View>
 
-        {/* Badge */}
+        {/* ==================================================
+            BADGE
+        ================================================== */}
+
         <View style={styles.phaseBadge}>
           <View
             style={[
               styles.phaseDot,
               {
-                backgroundColor: config.color,
+                backgroundColor:
+                  config.color,
               },
             ]}
           />
@@ -129,28 +323,38 @@ export default function PhaseCard({
               },
             ]}
           >
-            {badgeLabel}
+            {config.badge}
           </Text>
         </View>
       </View>
 
-      {/* Progress */}
+      {/* ==================================================
+          PROGRESS
+      ================================================== */}
+
       <View style={styles.progressTrack}>
         <View
           style={[
             styles.progressFill,
             {
-              width: `${currentProgress}%`,
-              backgroundColor: config.color,
+              width: `${progress}%`,
+              backgroundColor:
+                config.color,
             },
           ]}
         />
       </View>
 
-      {/* Helper text */}
-      <Text style={styles.helperText}>
-        {currentNextPeriod}
-      </Text>
+      {/* ==================================================
+          HELPER TEXT
+      ================================================== */}
+
+      {nextPeriod ? (
+        <Text style={styles.helperText}>
+          {nextPeriod}
+        </Text>
+      ) : null}
     </View>
   );
 }
+
