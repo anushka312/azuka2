@@ -58,6 +58,20 @@ def get_user_profile(user_id: str):
 
     return user
 
+def get_user_profile_by_email(email: str):
+
+    user = get_user_by_email(email)
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found."
+        )
+
+    # Convert ObjectId to string
+    user["_id"] = str(user["_id"])
+
+    return user
 
 def update_user_profile(
     user_id: str,
