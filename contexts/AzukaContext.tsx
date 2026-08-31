@@ -1,3 +1,4 @@
+
 import React, {
   createContext,
   useCallback,
@@ -16,7 +17,7 @@ import {
   DailyScore,
   Workout,
   Recipe,
-  getUserProfile,
+  getUserProfileByEmail,
   getCycleHistory,
   getLatestCycle,
   getDailyState,
@@ -101,10 +102,19 @@ export function AzukaProvider({
     isLoading: authLoading,
   } = useAuth();
 
+  /*
+   * We still get userId because other backend routes may
+   * currently use it.
+   *
+   * IMPORTANT:
+   * User profile is now fetched using EMAIL, not Firebase UID.
+   */
   const userId = user?.userId;
+  const userEmail = user?.email;
 
-  console.log('AZUKA AUTH USER:', user);
-  console.log('AZUKA USER ID:', userId);
+  console.log("AZUKA AUTH USER:", user);
+  console.log("AZUKA USER ID:", userId);
+  console.log("AZUKA USER EMAIL:", userEmail);
 
   // ==========================================================
   // STATE
@@ -154,9 +164,11 @@ export function AzukaProvider({
     const today = new Date();
 
     const year = today.getFullYear();
+
     const month = String(
       today.getMonth() + 1
     ).padStart(2, "0");
+
     const day = String(
       today.getDate()
     ).padStart(2, "0");
@@ -168,37 +180,53 @@ export function AzukaProvider({
   // USER PROFILE
   // ==========================================================
 
-const refreshUserProfile = useCallback(
-  async () => {
-    if (!userId) {
-      console.log('AZUKA: No userId, cannot fetch profile');
-      return;
-    }
+  const refreshUserProfile = useCallback(
+    async () => {
+      /*
+       * The MongoDB profile is identified using the user's
+       * email address.
+       *
+       * Firebase UID is NOT used here.
+       */
 
-    try {
-      console.log(
-        'AZUKA: Fetching profile for userId:',
-        userId
-      );
+      if (!userEmail) {
+        console.log(
+          "AZUKA: No user email, cannot fetch profile"
+        );
 
-      const profile = await getUserProfile(userId);
+        setUserProfile(null);
 
-      console.log(
-        'AZUKA: PROFILE RECEIVED:',
-        profile
-      );
+        return;
+      }
 
-      setUserProfile(profile);
-    } catch (error) {
-      console.error(
-        'AZUKA: Failed to fetch user profile:',
-        error
-      );
-      throw error;
-    }
-  },
-  [userId]
-);
+      try {
+        console.log(
+          "AZUKA: Fetching MongoDB profile for email:",
+          userEmail
+        );
+
+        const profile =
+          await getUserProfileByEmail(userEmail);
+
+        console.log(
+          "AZUKA: MONGODB PROFILE RECEIVED:",
+          profile
+        );
+
+        setUserProfile(profile);
+      } catch (error) {
+        console.error(
+          "AZUKA: Failed to fetch user profile:",
+          error
+        );
+
+        setUserProfile(null);
+
+        throw error;
+      }
+    },
+    [userEmail]
+  );
 
   // ==========================================================
   // CYCLE DATA
@@ -304,8 +332,10 @@ const refreshUserProfile = useCallback(
           data
         );
 
-        // Fetch the updated MongoDB document
-        // so Context remains the source of truth.
+        /*
+         * Fetch the updated MongoDB document
+         * so Context remains the source of truth.
+         */
         await refreshDailyData(
           selectedDate
         );
@@ -386,19 +416,40 @@ const refreshUserProfile = useCallback(
 
   const refreshData = useCallback(
     async () => {
-      if (!userId) return;
+      /*
+       * We need the email for the user profile.
+       *
+       * userId is still required for the other existing
+       * endpoints.
+       */
+      if (!userEmail && !userId) {
+        return;
+      }
 
       setIsLoading(true);
       setError(null);
 
       try {
-        await Promise.all([
-          refreshUserProfile(),
-          refreshCycleData(),
-          refreshDailyData(),
-          refreshWorkoutData(),
-          refreshRecipes(),
-        ]);
+        const requests: Promise<void>[] = [];
+
+        // MongoDB profile uses EMAIL
+        if (userEmail) {
+          requests.push(
+            refreshUserProfile()
+          );
+        }
+
+        // Other existing APIs use userId
+        if (userId) {
+          requests.push(
+            refreshCycleData(),
+            refreshDailyData(),
+            refreshWorkoutData(),
+            refreshRecipes()
+          );
+        }
+
+        await Promise.all(requests);
       } catch (error) {
         console.error(
           "Failed to refresh Azuka data:",
@@ -415,6 +466,7 @@ const refreshUserProfile = useCallback(
       }
     },
     [
+      userEmail,
       userId,
       refreshUserProfile,
       refreshCycleData,
@@ -429,19 +481,42 @@ const refreshUserProfile = useCallback(
   // ==========================================================
 
   useEffect(() => {
-    if (
-      authLoading ||
-      !isAuthenticated ||
-      !userId
-    ) {
+    /*
+     * Wait until AuthContext has restored Firebase auth.
+     */
+    if (authLoading) {
       return;
     }
+
+    /*
+     * No authenticated user.
+     */
+    if (!isAuthenticated) {
+      return;
+    }
+
+    /*
+     * We need at least the email to fetch the MongoDB
+     * user profile.
+     */
+    if (!userEmail) {
+      return;
+    }
+
+    console.log(
+      "AZUKA: Authenticated user detected."
+    );
+
+    console.log(
+      "AZUKA: Loading MongoDB profile for:",
+      userEmail
+    );
 
     refreshData();
   }, [
     authLoading,
     isAuthenticated,
-    userId,
+    userEmail,
     refreshData,
   ]);
 
@@ -450,19 +525,32 @@ const refreshUserProfile = useCallback(
   // ==========================================================
 
   useEffect(() => {
-    if (isAuthenticated) return;
+    if (isAuthenticated) {
+      return;
+    }
 
     setUserProfile(null);
+
     setCycleHistory([]);
+
     setLatestCycle(null);
+
     setDailyState(null);
+
     setDailyScore(null);
+
     setRecentScores([]);
+
     setTodayWorkout(null);
+
     setNextWorkouts([]);
+
     setWorkoutHistory([]);
+
     setRecipes([]);
+
     setError(null);
+
     setIsLoading(false);
   }, [isAuthenticated]);
 
@@ -476,50 +564,78 @@ const refreshUserProfile = useCallback(
         userProfile,
 
         cycleHistory,
+
         latestCycle,
 
         dailyState,
+
         dailyScore,
 
         recentScores,
 
         todayWorkout,
+
         nextWorkouts,
+
         workoutHistory,
 
         recipes,
 
         isLoading,
+
         error,
 
         refreshData,
+
         refreshUserProfile,
+
         refreshCycleData,
+
         refreshDailyData,
+
         refreshWorkoutData,
+
         refreshRecipes,
 
         saveDailyCheckIn,
       }),
       [
         userProfile,
+
         cycleHistory,
+
         latestCycle,
+
         dailyState,
+
         dailyScore,
+
         recentScores,
+
         todayWorkout,
+
         nextWorkouts,
+
         workoutHistory,
+
         recipes,
+
         isLoading,
+
         error,
+
         refreshData,
+
         refreshUserProfile,
+
         refreshCycleData,
+
         refreshDailyData,
+
         refreshWorkoutData,
+
         refreshRecipes,
+
         saveDailyCheckIn,
       ]
     );

@@ -544,3 +544,21 @@ export async function analyzeMealImage(
 
   return response.json();
 }
+
+export async function getUserProfileByEmail(email: string) {
+  const response = await fetch(
+    `${API_BASE_URL}/api/user-profile/email/${encodeURIComponent(email)}`
+  );
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error('USER_PROFILE_NOT_FOUND');
+    }
+
+    throw new Error(
+      `Failed to fetch user profile: ${response.status}`
+    );
+  }
+
+  return response.json();
+}
