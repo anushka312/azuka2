@@ -42,3 +42,17 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Expo
+.expo/
+.expo-shared/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment
+.env
+.env.*
+!.env.example
