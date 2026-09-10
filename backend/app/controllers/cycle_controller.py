@@ -21,7 +21,7 @@ from app.schemas.cycle_schema import (
 )
 
 
-def create_cycle_record(
+async def create_cycle_record(
     user_id: str,
     cycle_data: CycleCreate
 ):
@@ -35,9 +35,9 @@ def create_cycle_record(
 
         cycle_dict["created_at"] = datetime.utcnow()
 
-        cycle_id = create_cycle(cycle_dict)
+        cycle_id = await create_cycle(cycle_dict)
 
-        update_user(
+        await update_user(
             user_id,
             {
                 "cycle.last_period_start_date":
@@ -57,12 +57,12 @@ def create_cycle_record(
         )
 
 
-def get_user_cycle_history(
+async def get_user_cycle_history(
     user_id: str
 ):
 
     try:
-        cycles = get_cycle_history(user_id)
+        cycles = await get_cycle_history(user_id)
 
     except Exception:
         raise HTTPException(
@@ -88,12 +88,12 @@ def get_user_cycle_history(
     return cycles
 
 
-def get_latest_user_cycle(
+async def get_latest_user_cycle(
     user_id: str
 ):
 
     try:
-        cycle = get_latest_cycle(user_id)
+        cycle = await get_latest_cycle(user_id)
 
     except Exception:
         raise HTTPException(
@@ -123,13 +123,13 @@ def get_latest_user_cycle(
     return cycle
 
 
-def update_cycle_record(
+async def update_cycle_record(
     cycle_id: str,
     cycle_data: CycleUpdate
 ):
 
     try:
-        existing_cycle = get_cycle_by_id(
+        existing_cycle = await get_cycle_by_id(
             cycle_id
         )
 
@@ -155,7 +155,7 @@ def update_cycle_record(
             detail="No fields provided for update."
         )
 
-    update_cycle(
+    await update_cycle(
         cycle_id,
         update_data
     )

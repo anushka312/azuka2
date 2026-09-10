@@ -30,7 +30,7 @@ import * as ImagePicker from "expo-image-picker";
 import { Palette, GlobalStyles } from "@/constants/Styles";
 import {
   analyzeMealImage,
-  getUserProfile,
+  getUserProfileByEmail,
   FoodVisionOutput,
 } from "@/services/api";
 

@@ -1,17 +1,16 @@
 from datetime import date, timedelta
 
 from app.database.workout_repository import (
-get_workout,
-get_workouts,
-update_workout
+    get_workout,
+    get_workouts,
+    update_workout
 )
 
-def get_today_workout(user_id: str):
-
+async def get_today_workout(user_id: str):
 
     today = date.today().isoformat()
 
-    workout = get_workout(
+    workout = await get_workout(
         user_id,
         today
     )
@@ -31,13 +30,12 @@ def get_today_workout(user_id: str):
     return workout
 
 
-def get_next_workouts(user_id: str):
-
+async def get_next_workouts(user_id: str):
 
     today = date.today()
     end_date = today + timedelta(days=7)
 
-    workouts = get_workouts(
+    workouts = await get_workouts(
         user_id,
         today.isoformat(),
         end_date.isoformat()
@@ -54,15 +52,14 @@ def get_next_workouts(user_id: str):
     return workouts
 
 
-def update_today_workout(
-user_id: str,
-update_data: dict
+async def update_today_workout(
+    user_id: str,
+    update_data: dict
 ):
-
 
     today = date.today().isoformat()
 
-    workout = get_workout(
+    workout = await get_workout(
         user_id,
         today
     )
@@ -72,13 +69,13 @@ update_data: dict
             "Today's workout not found"
         )
 
-    update_workout(
+    await update_workout(
         user_id,
         today,
         update_data
     )
 
-    updated_workout = get_workout(
+    updated_workout = await get_workout(
         user_id,
         today
     )
@@ -93,13 +90,12 @@ update_data: dict
     return updated_workout
 
 
-def get_workout_history(user_id: str):
-
+async def get_workout_history(user_id: str):
 
     today = date.today()
     start_date = today - timedelta(days=30)
 
-    workouts = get_workouts(
+    workouts = await get_workouts(
         user_id,
         start_date.isoformat(),
         today.isoformat()
@@ -114,4 +110,3 @@ def get_workout_history(user_id: str):
         )
 
     return workouts
-

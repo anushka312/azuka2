@@ -1,6 +1,5 @@
 
 import { useRouter } from 'expo-router';
-
 import { useState } from 'react';
 
 import {
@@ -19,32 +18,22 @@ import {
   Palette,
 } from '@/constants/Styles';
 
-import { auth } from '@/services/firebase';
-
-import { useAuth } from '@/contexts/AuthContext';
+import { auth } from '../../services/firebase';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function LoginScreen() {
   const router = useRouter();
 
   const { signIn } = useAuth();
 
-  const [email, setEmail] =
-    useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
-  const [password, setPassword] =
-    useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [firebaseError, setFirebaseError] = useState('');
 
-  const [emailError, setEmailError] =
-    useState('');
-
-  const [passwordError, setPasswordError] =
-    useState('');
-
-  const [firebaseError, setFirebaseError] =
-    useState('');
-
-  const [isLoading, setIsLoading] =
-    useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   /*
    * ============================================================
@@ -53,9 +42,7 @@ export default function LoginScreen() {
    */
 
   const validateEmail = (value: string) => {
-    return /\S+@\S+\.\S+/.test(
-      value.trim()
-    );
+    return /\S+@\S+\.\S+/.test(value.trim());
   };
 
   /*
@@ -65,17 +52,11 @@ export default function LoginScreen() {
    */
 
   const handleLogin = async () => {
-    const trimmedEmail =
-      email.trim();
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
 
-    const trimmedPassword =
-      password.trim();
-
-    const hasValidEmail =
-      validateEmail(trimmedEmail);
-
-    const hasValidPassword =
-      trimmedPassword.length >= 6;
+    const hasValidEmail = validateEmail(trimmedEmail);
+    const hasValidPassword = trimmedPassword.length >= 6;
 
     setEmailError(
       hasValidEmail
@@ -91,10 +72,7 @@ export default function LoginScreen() {
 
     setFirebaseError('');
 
-    if (
-      !hasValidEmail ||
-      !hasValidPassword
-    ) {
+    if (!hasValidEmail || !hasValidPassword) {
       return;
     }
 
@@ -104,7 +82,7 @@ export default function LoginScreen() {
       /*
        * ========================================================
        * STEP 1
-       * Authenticate with Firebase.
+       * Authenticate with Firebase
        * ========================================================
        */
 
@@ -115,85 +93,102 @@ export default function LoginScreen() {
           trimmedPassword
         );
 
-      const firebaseUser =
-        credential.user;
+      const firebaseUser = credential.user;
 
       /*
        * ========================================================
        * STEP 2
-       * Update our AuthContext.
+       * Update AuthContext
        *
-       * AuthContext will:
+       * AuthContext should determine whether the MongoDB
+       * profile exists and update its authentication state.
        *
-       * 1. Store the user locally
-       * 2. Read this user's profileCompleted value
-       * 3. Update isAuthenticated
-       * 4. Update profileCompleted
-       *
-       * AuthRedirect in _layout.tsx will then
-       * automatically navigate the user.
-       * ========================================================
-       */
-
-      await signIn(
-        firebaseUser.uid,
-        firebaseUser.displayName ?? '',
-        firebaseUser.email ?? trimmedEmail
-      );
-
-      /*
-       * IMPORTANT:
-       *
-       * DO NOT navigate here.
-       *
-       * AuthRedirect will see the changed AuthContext
-       * and send the user to:
+       * AuthRedirect in _layout.tsx should then decide:
        *
        * profileCompleted === false
        *      -> /auth/profile-setup
        *
        * profileCompleted === true
        *      -> /(tabs)
+       * ========================================================
+       */
+
+      await signIn(
+        firebaseUser.email ?? trimmedEmail,
+        trimmedPassword
+      );
+
+      /*
+       * DO NOT navigate here.
+       *
+       * AuthRedirect should handle navigation based on
+       * AuthContext state.
        */
 
     } catch (error: any) {
-      console.error(
-        'Login error:',
-        error
-      );
+      console.error('Login error:', error);
+      console.error('Login error message:', error?.message);
+      console.error('Login error code:', error?.code);
 
-      switch (error.code) {
-        case 'auth/invalid-email':
-          setFirebaseError(
-            'Please enter a valid email address.'
-          );
+      /*
+       * ========================================================
+       * PROFILE DOES NOT EXIST
+       * ========================================================
+       *
+       * This means Firebase authentication succeeded, but
+       * the MongoDB user profile does not exist yet.
+       *
+       * If AuthContext has already updated its state,
+       * AuthRedirect will send the user to ProfileSetup.
+       *
+       * We only stop the loading state here.
+       */
+
+      if (error?.message === 'PROFILE_NOT_COMPLETED') {
+        console.log(
+          'Firebase user exists, but MongoDB profile does not exist yet.'
+        );
+
+        setIsLoading(false);
+
+        return;
+      }
+
+      /*
+       * ========================================================
+       * NORMAL FIREBASE ERROR
+       * ========================================================
+       */
+
+      let message = 'Unable to log in. Please try again.';
+
+      switch (error?.code) {
+        case 'auth/invalid-credential':
+        case 'auth/wrong-password':
+        case 'auth/user-not-found':
+          message = 'Incorrect email or password.';
           break;
 
-        case 'auth/user-not-found':
-        case 'auth/wrong-password':
-        case 'auth/invalid-credential':
-          setFirebaseError(
-            'Incorrect email or password.'
-          );
+        case 'auth/invalid-email':
+          message = 'Please enter a valid email address.';
+          break;
+
+        case 'auth/user-disabled':
+          message = 'This account has been disabled.';
           break;
 
         case 'auth/too-many-requests':
-          setFirebaseError(
-            'Too many failed attempts. Please try again later.'
-          );
-          break;
-
-        case 'auth/network-request-failed':
-          setFirebaseError(
-            'Network error. Please check your internet connection.'
-          );
+          message =
+            'Too many login attempts. Please try again later.';
           break;
 
         default:
-          setFirebaseError(
-            'Unable to log in. Please try again.'
-          );
+          message =
+            error?.message ||
+            'Unable to log in. Please try again.';
       }
+
+      setFirebaseError(message);
     } finally {
       setIsLoading(false);
     }
@@ -338,23 +333,14 @@ export default function LoginScreen() {
           style={[
             GlobalStyles.btnPrimary,
             {
-              backgroundColor:
-                Palette.crimson,
-              opacity: isLoading
-                ? 0.7
-                : 1,
+              backgroundColor: Palette.crimson,
+              opacity: isLoading ? 0.7 : 1,
             },
           ]}
           onPress={handleLogin}
         >
-          <Text
-            style={
-              GlobalStyles.btnPrimaryText
-            }
-          >
-            {isLoading
-              ? 'Logging in...'
-              : 'Continue'}
+          <Text style={GlobalStyles.btnPrimaryText}>
+            {isLoading ? 'Logging in...' : 'Continue'}
           </Text>
         </Pressable>
 
@@ -362,17 +348,14 @@ export default function LoginScreen() {
 
         <Pressable
           disabled={isLoading}
-          onPress={() =>
-            router.back()
-          }
+          onPress={() => router.replace('/')}
         >
           <Text
             style={[
               GlobalStyles.bodyText,
               {
                 textAlign: 'center',
-                textDecorationLine:
-                  'underline',
+                textDecorationLine: 'underline',
                 marginTop: 12,
               },
             ]}

@@ -12,13 +12,13 @@ router = APIRouter(
 
 
 @router.post("/daily/{user_id}")
-def generate_daily(
+async def generate_daily(
     user_id: str,
 ):
 
     try:
 
-        result = generate_user_daily_plan(
+        result = await generate_user_daily_plan(
             user_id
         )
 

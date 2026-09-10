@@ -1,3 +1,4 @@
+from datetime import date as Date
 from typing import Optional, List
 
 from pydantic import BaseModel
@@ -14,14 +15,13 @@ class OverallState(BaseModel):
 class ExerciseDetails(BaseModel):
     activity_name: str
     type: str
-
     duration_mins: Optional[int] = None
     sets: Optional[int] = None
     reps: Optional[int] = None
 
 
 class WorkoutDayItem(BaseModel):
-    date: str
+    date: Date
     info_tag: str
     intensity_tag: str
     activities: List[ExerciseDetails]

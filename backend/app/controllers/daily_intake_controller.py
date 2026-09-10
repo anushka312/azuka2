@@ -1,17 +1,16 @@
 from datetime import date
 
 from app.database.daily_intake_repository import (
-get_daily_intake,
-create_daily_intake,
-update_daily_intake
+    get_daily_intake,
+    create_daily_intake,
+    update_daily_intake
 )
 
-def get_today_intake(user_id: str):
-
+async def get_today_intake(user_id: str):
 
     today = date.today().isoformat()
 
-    intake = get_daily_intake(
+    intake = await get_daily_intake(
         user_id,
         today
     )
@@ -29,18 +28,17 @@ def get_today_intake(user_id: str):
     return intake
 
 
-def create_today_intake(
-user_id: str,
-intake_data: dict
+async def create_today_intake(
+    user_id: str,
+    intake_data: dict
 ):
-
 
     today = date.today().isoformat()
 
     intake_data["user_id"] = user_id
     intake_data["date"] = today
 
-    intake_id = create_daily_intake(
+    intake_id = await create_daily_intake(
         intake_data
     )
 
@@ -51,15 +49,14 @@ intake_data: dict
     }
 
 
-def update_today_intake(
-user_id: str,
-update_data: dict
+async def update_today_intake(
+    user_id: str,
+    update_data: dict
 ):
-
 
     today = date.today().isoformat()
 
-    existing_intake = get_daily_intake(
+    existing_intake = await get_daily_intake(
         user_id,
         today
     )
@@ -69,13 +66,13 @@ update_data: dict
             "Today's intake not found"
         )
 
-    update_daily_intake(
+    await update_daily_intake(
         user_id,
         today,
         update_data
     )
 
-    updated_intake = get_daily_intake(
+    updated_intake = await get_daily_intake(
         user_id,
         today
     )
@@ -88,4 +85,3 @@ update_data: dict
     )
 
     return updated_intake
-

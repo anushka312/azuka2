@@ -1,10 +1,6 @@
-import os
-
-from datetime import date, datetime, timezone
-
+import asyncio
+from datetime import date, datetime, timezone, timedelta
 from bson import ObjectId
-
-from google import genai
 
 from app.database.user_repository import get_user_by_id
 from app.database.cycle_repository import get_latest_cycle
@@ -28,21 +24,10 @@ from ai.schemas.input import (
     WorkoutState,
     WorkoutActivity,
 )
-
 from ai.schemas.output import AzukaDailyOutput
 
-from ai.prompts.system_prompt import AZUKA_SYSTEM_PROMPT
-from ai.prompts.daily_prompt import AZUKA_DAILY_PROMPT
+from ai.agents.daily_agent import run_azuka_daily_agent
 
-
-
-# ============================================================
-# GEMINI CLIENT
-# ============================================================
-
-client = genai.Client(
-    api_key=os.environ.get("GEMINI_API_KEY")
-)
 
 
 # ============================================================
@@ -250,7 +235,7 @@ def build_user_state(
 # GET AGENT CONTEXT
 # ============================================================
 
-def get_agent_context(
+async def get_agent_context(
     user_id: str,
 ):
 
@@ -269,7 +254,7 @@ def get_agent_context(
     # USER
     # --------------------------------------------------------
 
-    user = get_user_by_id(
+    user = await get_user_by_id(
         user_id
     )
 
@@ -283,7 +268,7 @@ def get_agent_context(
     # DAILY STATE
     # --------------------------------------------------------
 
-    daily_state = get_daily_state(
+    daily_state = await get_daily_state(
         user_id,
         today
     )
@@ -292,7 +277,7 @@ def get_agent_context(
     # DAILY INTAKE
     # --------------------------------------------------------
 
-    daily_intake = get_daily_intake(
+    daily_intake = await get_daily_intake(
         user_id,
         today
     )
@@ -301,7 +286,7 @@ def get_agent_context(
     # LATEST CYCLE
     # --------------------------------------------------------
 
-    latest_cycle = get_latest_cycle(
+    latest_cycle = await get_latest_cycle(
         user_id
     )
 
@@ -309,7 +294,7 @@ def get_agent_context(
     # TODAY'S / RECENT WORKOUTS
     # --------------------------------------------------------
 
-    recent_workouts = get_workouts(
+    recent_workouts = await get_workouts(
         user_id,
         today,
         today
@@ -340,85 +325,88 @@ def get_agent_context(
 # GENERATE DAILY PLAN
 # ============================================================
 
-def generate_daily_plan(
+# ============================================================
+# GENERATE DAILY PLAN
+# ============================================================
+
+async def generate_daily_plan(
     user_id: str,
 ) -> AzukaDailyOutput:
 
-    context = get_agent_context(
-        user_id
+    context = await get_agent_context(user_id)
+
+    general_state = context["general_state"]
+    user_state = context["user_state"]
+
+    print(
+        "[AGENT_SERVICE] Sending user state to daily_agent.py"
     )
 
-    general_state = context[
-        "general_state"
-    ]
+    print(
+        f"[AGENT_SERVICE] General state keys: "
+        f"{general_state.model_dump(exclude_none=True).keys()}"
+    )
 
-    user_state = context[
-        "user_state"
-    ]
-
-    # --------------------------------------------------------
-    # CREATE JSON PAYLOAD
-    # --------------------------------------------------------
-
-    input_payload = {
-        "general_state":
-            general_state.model_dump(
-                exclude_none=True
-            ),
-
-        "user_state":
-            user_state.model_dump(
-                exclude_none=True
-            ),
-    }
-
-    # --------------------------------------------------------
-    # CREATE PROMPT
-    # --------------------------------------------------------
-
-    prompt = (
-        AZUKA_DAILY_PROMPT
-        + "\n\nUSER DATA:\n"
-        + str(input_payload)
+    print(
+        f"[AGENT_SERVICE] User state keys: "
+        f"{user_state.model_dump(exclude_none=True).keys()}"
     )
 
     # --------------------------------------------------------
-    # CALL GEMINI
+    # CALL DAILY AGENT
+    # --------------------------------------------------------
+    #
+    # daily_agent.py owns:
+    # - Gemini client
+    # - model selection
+    # - fallback models
+    # - Gemini prompt
+    # - response schema
+    #
+    # Run the synchronous Gemini call in a worker thread so
+    # we do not block the FastAPI async event loop.
     # --------------------------------------------------------
 
-    response = client.models.generate_content(
+    try:
+        result = await asyncio.to_thread(
+            run_azuka_daily_agent,
+            general_state,
+            user_state,
+        )
 
-        model="gemini-2.5-flash",
+        print(
+            "[AGENT_SERVICE] daily_agent.py returned successfully"
+        )
 
-        contents=prompt,
+        print(
+            f"[AGENT_SERVICE] Result type: {type(result)}"
+        )
 
-        config={
-            "system_instruction":
-                AZUKA_SYSTEM_PROMPT,
-
-            "response_mime_type":
-                "application/json",
-
-            "response_schema":
-                AzukaDailyOutput,
-        },
-    )
+    except Exception as e:
+        print(
+            f"[AGENT_SERVICE] ERROR from daily_agent.py: {e}"
+        )
+        print(
+            f"[AGENT_SERVICE] Error type: {type(e)}"
+        )
+        raise
 
     # --------------------------------------------------------
-    # VALIDATE AI RESPONSE
+    # VALIDATE RESULT
     # --------------------------------------------------------
 
-    result = AzukaDailyOutput.model_validate_json(
-        response.text
-    )
+    if not isinstance(result, AzukaDailyOutput):
+        raise ValueError(
+            "daily_agent.py did not return AzukaDailyOutput"
+        )
 
     # --------------------------------------------------------
     # SAVE AI OUTPUT
     # --------------------------------------------------------
 
-    save_daily_output(
+    await save_daily_output(
         user_id,
-        result
+        result,
     )
 
     return result
@@ -428,196 +416,132 @@ def generate_daily_plan(
 # SAVE DAILY OUTPUT
 # ============================================================
 
-def save_daily_output(
+async def save_daily_output(
     user_id: str,
-    output: AzukaDailyOutput,
+    output: AzukaDailyOutput
 ):
+    mongo_user_id = ObjectId(user_id)
 
-    mongo_user_id = ObjectId(
-        user_id
-    )
+    now = datetime.now(timezone.utc)
 
-    now = datetime.now(
-        timezone.utc
-    )
+    # Backend owns the actual calendar date.
+    # Never rely on Gemini to determine "today".
+    today = date.today()
 
-    today = date.today().isoformat()
-
-    # ========================================================
-    # DAILY SCORE
-    # ========================================================
+    # ============================================================
+    # 1. SAVE DAILY SCORE
+    # ============================================================
 
     score_data = {
+        "_id": ObjectId(),
+        "user_id": mongo_user_id,
+        "date": today.isoformat(),
 
-        "_id":
-            ObjectId(),
+        "daily_recovery_score": output.overall.daily_recovery_score,
+        "stress_level": output.overall.stress_level,
+        "phase_energy_score": output.overall.phase_energy_score,
+        "strain_output_balance_score": (
+            output.overall.strain_output_balance_score
+        ),
+        "comment": output.overall.comment,
 
-        "user_id":
-            mongo_user_id,
-
-        "date":
-            today,
-
-        "daily_recovery_score":
-            output.overall.daily_recovery_score,
-
-        "stress_level":
-            output.overall.stress_level,
-
-        "phase_energy_score":
-            output.overall.phase_energy_score,
-
-        "strain_output_balance_score":
-            output.overall.strain_output_balance_score,
-
-        "comment":
-            output.overall.comment,
-
-        "created_at":
-            now,
+        "created_at": now,
+        "updated_at": now,
     }
 
-    create_daily_score(
-        score_data
-    )
+    await create_daily_score(score_data)
 
-    # ========================================================
-    # WORKOUTS
-    # ========================================================
+    # ============================================================
+    # 2. SAVE WORKOUTS
+    # ============================================================
 
-    for workout_day in output.workout:
+    for index, workout_day in enumerate(output.workout):
+
+        # IMPORTANT:
+        # Do NOT use workout_day.date here.
+        #
+        # Gemini may return "Today", "Tomorrow", etc.
+        # The backend is the source of truth.
+        #
+        # index 0 -> today
+        # index 1 -> tomorrow
+        # index 2 -> day after tomorrow
+        # etc.
+
+        workout_date = (
+            today + timedelta(days=index)
+        ).isoformat()
 
         workout_data = {
+            "_id": ObjectId(),
 
-            "_id":
-                ObjectId(),
+            "user_id": mongo_user_id,
 
-            "user_id":
-                mongo_user_id,
+            # Backend-generated ISO date.
+            "date": workout_date,
 
-            "date":
-                workout_day.date,
+            "status": "planned",
 
-            "status":
-                "planned",
+            "info_tag": workout_day.info_tag,
 
-            "info_tag":
-                workout_day.info_tag,
-
-            "intensity_tag":
-                workout_day.intensity_tag,
+            "intensity_tag": workout_day.intensity_tag,
 
             "activities": [
-
                 {
-                    "activity_name":
-                        activity.activity_name,
-
-                    "type":
-                        activity.type,
-
-                    "duration_mins":
-                        activity.duration_mins,
-
-                    "sets":
-                        activity.sets,
-
-                    "reps":
-                        activity.reps,
-
-                    "completed":
-                        False,
+                    "activity_name": activity.activity_name,
+                    "type": activity.type,
+                    "duration_mins": activity.duration_mins,
+                    "sets": activity.sets,
+                    "reps": activity.reps,
+                    "completed": False,
                 }
-
-                for activity
-                in workout_day.activities
+                for activity in workout_day.activities
             ],
 
-            "actual_activities":
-                [],
+            "actual_activities": [],
 
-            "created_at":
-                now,
-
-            "generated_at":
-                now,
-
-            "completed_at":
-                None,
-
-            "updated_at":
-                now,
+            "created_at": now,
+            "generated_at": now,
+            "completed_at": None,
+            "updated_at": now,
         }
 
-        create_workout(
-            workout_data
-        )
+        await create_workout(workout_data)
 
-    # ========================================================
-    # RECIPES
-    # ========================================================
+    # ============================================================
+    # 3. SAVE RECIPES
+    # ============================================================
 
-    recipes = []
-
-    for recipe in output.recipes:
-
-        recipes.append({
-
-            "name":
-                recipe.name,
-
-            "time":
-                None,
-
-            "isConsumed":
-                False,
-
-            "tags":
-                recipe.tags,
-
-            "description":
-                recipe.description,
-
-            "calories":
-                recipe.calories,
-
-            "protein":
-                recipe.protein,
-
-            "carbohydrates":
-                recipe.carbohydrates,
-
-            "fats":
-                recipe.fats,
-
-            "ingredients":
-                recipe.ingredients,
-
-            "comments":
-                recipe.comments,
-        })
+    recipes = [
+        {
+            "name": recipe.name,
+            "tags": recipe.tags,
+            "description": recipe.description,
+            "calories": recipe.calories,
+            "protein": recipe.protein,
+            "carbohydrates": recipe.carbohydrates,
+            "fats": recipe.fats,
+            "ingredients": recipe.ingredients,
+            "comments": recipe.comments,
+        }
+        for recipe in output.recipes
+    ]
 
     recipe_data = {
+        "_id": ObjectId(),
 
-        "_id":
-            ObjectId(),
+        "user_id": mongo_user_id,
 
-        "user_id":
-            mongo_user_id,
+        "date": today.isoformat(),
 
-        "date":
-            today,
+        "recipes": recipes,
 
-        "recipes":
-            recipes,
+        "food_comment": output.food_comment,
 
-        "created_at":
-            now,
-
-        "updated_at":
-            now,
+        "created_at": now,
+        "updated_at": now,
     }
 
-    create_daily_recipes(
-        recipe_data
-    )
+    await create_daily_recipes(recipe_data)
+
+    return output

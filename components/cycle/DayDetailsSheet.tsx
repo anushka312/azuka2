@@ -1,9 +1,8 @@
-
 import React, {
   useEffect,
   useRef,
+  useState,
 } from "react";
-
 import {
   Animated,
   Modal,
@@ -13,13 +12,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
 import { Ionicons } from "@expo/vector-icons";
-
 import { useAzuka } from "../../contexts/AzukaContext";
-
 import { Palette } from "../../constants/Styles";
-
 import { styles } from "./styles";
 
 // ============================================================
@@ -98,6 +93,28 @@ export default function DayDetailsSheet({
   } = useAzuka();
 
   // ==========================================================
+  // SELECTED DATE LOADING TRACKER
+  // ==========================================================
+
+  /**
+   * Keeps track of which date the current dailyState/dailyScore
+   * belong to.
+   *
+   * This is important because AzukaContext stores dailyState and
+   * dailyScore as shared context values.
+   *
+   * When the user changes:
+   *
+   * Sep 5 -> Sep 6
+   *
+   * we must not temporarily display Sep 5's data while Sep 6
+   * is being fetched.
+   */
+  const [loadedDate, setLoadedDate] = useState<string | null>(
+    null
+  );
+
+  // ==========================================================
   // ANIMATIONS
   // ==========================================================
 
@@ -115,15 +132,49 @@ export default function DayDetailsSheet({
 
   useEffect(() => {
     if (!visible || !selectedDate) {
+      setLoadedDate(null);
       return;
     }
 
-    refreshDailyData(selectedDate).catch((error) => {
-      console.error(
-        "Failed to load daily data:",
-        error
-      );
-    });
+    // --------------------------------------------------------
+    // Immediately invalidate the previous date.
+    //
+    // Example:
+    //
+    // Previously loaded: Sep 5
+    // User selects:      Sep 6
+    //
+    // Sep 5 data must NOT be displayed while Sep 6 loads.
+    // --------------------------------------------------------
+
+    setLoadedDate(null);
+
+    let cancelled = false;
+
+    const loadSelectedDate = async () => {
+      try {
+        await refreshDailyData(selectedDate);
+
+        if (!cancelled) {
+          setLoadedDate(selectedDate);
+        }
+      } catch (error) {
+        console.error(
+          "Failed to load daily data:",
+          error
+        );
+
+        if (!cancelled) {
+          setLoadedDate(selectedDate);
+        }
+      }
+    };
+
+    loadSelectedDate();
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     visible,
     selectedDate,
@@ -147,7 +198,6 @@ export default function DayDetailsSheet({
             useNativeDriver: true,
           }
         ),
-
         Animated.timing(
           fadeAnim,
           {
@@ -167,7 +217,6 @@ export default function DayDetailsSheet({
             useNativeDriver: true,
           }
         ),
-
         Animated.timing(
           fadeAnim,
           {
@@ -189,33 +238,63 @@ export default function DayDetailsSheet({
   // ==========================================================
 
   const formattedDate = selectedDate
-    ? new Date(`${selectedDate}T12:00:00`).toLocaleDateString(
-      "en-US",
-      {
-        month: "long",
-        day: "numeric",
-        year: "numeric"
-      }
-    )
-
+    ? new Date(
+        `${selectedDate}T12:00:00`
+      ).toLocaleDateString(
+        "en-US",
+        {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        }
+      )
     : "";
 
   // ==========================================================
-  // DATA FROM AZUKA CONTEXT ONLY
+  // ONLY USE DATA AFTER SELECTED DATE HAS LOADED
   // ==========================================================
 
-  const phase = dailyState?.phase;
+  /**
+   * If the user selects Sep 6 while Sep 5 data is still present
+   * in context, loadedDate is immediately reset to null.
+   *
+   * Therefore all displayed values become empty/loading instead
+   * of incorrectly showing Sep 5's data.
+   */
+  const isSelectedDateLoaded =
+    selectedDate !== null &&
+    loadedDate === selectedDate;
 
-  const energy = dailyScore?.phase_energy_score;
+  const selectedDailyState =
+    isSelectedDateLoaded
+      ? dailyState
+      : null;
 
-  const stress = dailyScore?.stress_level;
+  const selectedDailyScore =
+    isSelectedDateLoaded
+      ? dailyScore
+      : null;
 
-  const sleep = dailyState?.sleep;
+  // ==========================================================
+  // DATA FROM AZUKA CONTEXT
+  // ==========================================================
 
-  const symptoms = dailyState?.symptoms;
+  const phase = selectedDailyState?.phase;
+
+  const energy =
+    selectedDailyScore?.phase_energy_score;
+
+  const stress =
+    selectedDailyScore?.stress_level;
+
+  const sleep =
+    selectedDailyState?.sleep;
+
+  const symptoms =
+    selectedDailyState?.symptoms;
 
   const recovery =
-    dailyScore?.daily_recovery_score;
+    selectedDailyScore?.daily_recovery_score;
 
   // ==========================================================
   // RENDER
@@ -229,7 +308,6 @@ export default function DayDetailsSheet({
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-
         {/* ==================================================
             BACKDROP
         ================================================== */}
@@ -301,7 +379,7 @@ export default function DayDetailsSheet({
               LOADING
           ================================================== */}
 
-          {isLoading ? (
+          {!isSelectedDateLoaded || isLoading ? (
             <View style={styles.emptyState}>
               <View style={styles.emptyIcon}>
                 <Ionicons
@@ -332,7 +410,9 @@ export default function DayDetailsSheet({
                 <Ionicons
                   name="alert-circle-outline"
                   size={28}
-                  color={Palette.crimson}
+                  color={
+                    Palette.crimson
+                  }
                 />
               </View>
 
@@ -344,7 +424,7 @@ export default function DayDetailsSheet({
                 {error}
               </Text>
             </View>
-          ) : dailyState || dailyScore ? (
+          ) : (
             /* ==================================================
                DATA
             ================================================== */
@@ -430,7 +510,7 @@ export default function DayDetailsSheet({
                   label="Energy"
                   value={
                     energy !== undefined &&
-                      energy !== null
+                    energy !== null
                       ? String(energy)
                       : "—"
                   }
@@ -440,7 +520,7 @@ export default function DayDetailsSheet({
                   label="Stress"
                   value={
                     stress !== undefined &&
-                      stress !== null
+                    stress !== null
                       ? String(stress)
                       : "—"
                   }
@@ -450,7 +530,7 @@ export default function DayDetailsSheet({
                   label="Sleep"
                   value={
                     sleep !== undefined &&
-                      sleep !== null
+                    sleep !== null
                       ? String(sleep)
                       : "—"
                   }
@@ -478,8 +558,19 @@ export default function DayDetailsSheet({
                   {Object.values(symptoms)
                     .flat()
                     .map((symptom) => (
-                      <View key={symptom} style={styles.symptomChip}>
-                        <Text style={styles.symptomText}>{symptom}</Text>
+                      <View
+                        key={symptom}
+                        style={
+                          styles.symptomChip
+                        }
+                      >
+                        <Text
+                          style={
+                            styles.symptomText
+                          }
+                        >
+                          {symptom}
+                        </Text>
                       </View>
                     ))}
                 </View>
@@ -525,7 +616,7 @@ export default function DayDetailsSheet({
                     }
                   >
                     {recovery !== undefined &&
-                      recovery !== null
+                    recovery !== null
                       ? recovery
                       : "—"}
                   </Text>
@@ -538,50 +629,6 @@ export default function DayDetailsSheet({
                 />
               </View>
             </ScrollView>
-          ) : (
-            /* ==================================================
-               NO DATA
-            ================================================== */
-
-            <View
-              style={
-                styles.emptyState
-              }
-            >
-              <View
-                style={
-                  styles.emptyIcon
-                }
-              >
-                <Ionicons
-                  name="calendar-outline"
-                  size={28}
-                  color={
-                    Palette.textSubtle
-                  }
-                />
-              </View>
-
-              <Text
-                style={
-                  styles.emptyTitle
-                }
-              >
-                No information yet
-              </Text>
-
-              <Text
-                style={
-                  styles.emptyText
-                }
-              >
-                Nothing has been recorded
-                for this day. Your cycle
-                and recovery information
-                will appear here once
-                it is logged.
-              </Text>
-            </View>
           )}
         </Animated.View>
       </View>
@@ -624,4 +671,3 @@ function InfoTile({
     </View>
   );
 }
-

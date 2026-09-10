@@ -38,16 +38,12 @@ limit: int = 7
 ):
 
 
-    return await list(
-        daily_scores_collection.find(
+    return await daily_scores_collection.find(
             {
                 "user_id": ObjectId(user_id)
             }
-        )
-        .sort(
-            "date",
-            -1
-        )
-        .limit(limit)
-    )
+        )\
+        .sort("date", -1)\
+        .limit(limit)\
+        .to_list(length=None)
 

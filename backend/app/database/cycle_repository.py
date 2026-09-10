@@ -34,16 +34,14 @@ async def get_latest_cycle(user_id: str):
 
 
 async def get_cycle_history(user_id: str):
-    return await list(
-        cycle_history_collection.find(
+    return await cycle_history_collection.find(
             {
                 "user_id": ObjectId(user_id)
             }
         ).sort(
             "period_start_date",
             -1
-        )
-    )
+        ).to_list(length=None)
 
 
 async def update_cycle(cycle_id: str, update_data: dict):

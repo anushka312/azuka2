@@ -1,4 +1,10 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+
+import React, {
+  useMemo,
+  useState,
+  useEffect,
+  useCallback,
+} from 'react';
 
 import {
   Pressable,
@@ -25,12 +31,7 @@ import RecipeDetailModal, {
   Recipe,
 } from './RecipeDetailModal';
 
-import {
-  getRecipes,
-  getUserProfile,
-  type Recipe as ApiRecipe,
-  type UserProfile,
-} from '@/services/api';
+import { useAzuka } from '@/contexts/AzukaContext';
 
 import {
   RecipeCardSkeleton,
@@ -38,13 +39,6 @@ import {
 } from '@/components/ui/Skeleton';
 
 import { ErrorCard } from '@/components/ui/StateFeedback';
-
-
-// =====================================================
-// CONSTANTS
-// =====================================================
-
-const USER_ID = 'default_user';
 
 
 // =====================================================
@@ -64,13 +58,13 @@ const phases = [
 // HELPER — DETERMINE RECIPE PHASE
 // =====================================================
 
-function getRecipePhase(
-  recipe: ApiRecipe
-): string {
-  const tags = recipe.tags ?? [];
+function getRecipePhase(recipe: any): string {
+  const tags = Array.isArray(recipe?.tags)
+    ? recipe.tags
+    : [];
 
-  const phaseTag = tags.find((tag) => {
-    const normalized = tag.toLowerCase();
+  const phaseTag = tags.find((tag: any) => {
+    const normalized = String(tag).toLowerCase();
 
     return phases
       .filter((phase) => phase !== 'All')
@@ -82,7 +76,7 @@ function getRecipePhase(
   });
 
   if (phaseTag) {
-    const normalized = phaseTag.toLowerCase();
+    const normalized = String(phaseTag).toLowerCase();
 
     if (normalized.includes('menstrual')) {
       return 'Menstrual';
@@ -106,33 +100,51 @@ function getRecipePhase(
 
 
 // =====================================================
-// HELPER — MAP API RECIPE TO UI RECIPE
+// HELPER — MAP AZUKA RECIPE TO UI RECIPE
 // =====================================================
 
-function mapApiRecipeToUiRecipe(
-  recipe: ApiRecipe,
+function mapAzukaRecipeToUiRecipe(
+  recipe: any,
   index: number
 ): Recipe {
   const phase = getRecipePhase(recipe);
 
   return {
-    id: `recipe-${index}-${recipe.name}`,
-    name: recipe.name,
+    id:
+      recipe?._id ??
+      recipe?.id ??
+      `recipe-${index}-${recipe?.name ?? 'recipe'}`,
 
-    // Your API Recipe type currently does not contain time.
-    // Keep a sensible fallback for the UI.
-    time: recipe.time
-      ? Number.parseInt(recipe.time, 10) || 20
-      : 20,
+    name:
+      recipe?.name ??
+      recipe?.title ??
+      'Personalized Recipe',
 
-    calories: recipe.calories ?? 0,
+    time:
+      typeof recipe?.time === 'number'
+        ? recipe.time
+        : recipe?.time
+          ? Number.parseInt(
+              String(recipe.time),
+              10
+            ) || 20
+          : 20,
 
-    protein: recipe.protein ?? 0,
+    calories:
+      typeof recipe?.calories === 'number'
+        ? recipe.calories
+        : 0,
+
+    protein:
+      typeof recipe?.protein === 'number'
+        ? recipe.protein
+        : 0,
 
     phase,
 
     tags:
-      recipe.tags && recipe.tags.length > 0
+      Array.isArray(recipe?.tags) &&
+      recipe.tags.length > 0
         ? recipe.tags
         : ['Bio-Adaptive'],
 
@@ -142,18 +154,21 @@ function mapApiRecipeToUiRecipe(
         : Palette.forestGreen,
 
     description:
-      recipe.description ||
+      recipe?.description ||
       'A nutrient-rich meal recommended by Azuka.',
 
     ingredients:
-      recipe.ingredients ?? [],
+      Array.isArray(recipe?.ingredients)
+        ? recipe.ingredients
+        : [],
 
     whyItHelps:
-      recipe.comments ||
+      recipe?.comments ||
+      recipe?.whyItHelps ||
       'Recommended by Azuka based on your nutritional needs.',
 
     isConsumed:
-      recipe.isConsumed ?? false,
+      recipe?.isConsumed ?? false,
   };
 }
 
@@ -164,16 +179,34 @@ function mapApiRecipeToUiRecipe(
 
 export default function RecipeGenerator() {
 
-  const [recipesList, setRecipesList] = useState<Recipe[]>([]);
+  // ===================================================
+  // AZUKA CONTEXT
+  //
+  // The currently authenticated user's recipes are
+  // already loaded by AzukaContext.
+  //
+  // NO default_user.
+  // NO hardcoded user ID.
+  // NO direct getRecipes() call.
+  // ===================================================
+
+  const {
+    recipes,
+    isLoading,
+    isGeneratingPlan,
+    error,
+    refreshRecipes,
+    generatePlan,
+  } = useAzuka();
+
+
+  // ===================================================
+  // LOCAL UI STATE
+  // ===================================================
 
   const [foodComment, setFoodComment] = useState(
     'Your personalized nutrition recommendations will appear here.'
   );
-
-  const [loading, setLoading] = useState(true);
-
-  const [errorMsg, setErrorMsg] =
-    useState<string | null>(null);
 
   const [search, setSearch] = useState('');
 
@@ -188,106 +221,105 @@ export default function RecipeGenerator() {
 
 
   // ===================================================
-  // FETCH RECIPES
+  // MAP CONTEXT RECIPES TO UI RECIPES
   // ===================================================
 
-  const fetchNutritionGuidance = useCallback(
-    async () => {
+  const recipesList = useMemo(() => {
+    if (!recipes || recipes.length === 0) {
+      return [];
+    }
 
-      try {
-        setLoading(true);
-        setErrorMsg(null);
-
-        console.log(
-          '[RecipeGenerator] Fetching recipes for:',
-          USER_ID
-        );
-
-        // ------------------------------------------------
-        // GET RECIPES FROM FASTAPI
-        //
-        // GET /api/recipes/{userId}
-        // ------------------------------------------------
-
-        const recipes: ApiRecipe[] =
-          await getRecipes(USER_ID);
-
-        console.log(
-          '[RecipeGenerator] Recipes received:',
-          recipes
-        );
-
-
-        // ------------------------------------------------
-        // NO RECIPES GENERATED
-        // ------------------------------------------------
-
-        if (!recipes || recipes.length === 0) {
-
-          setRecipesList([]);
-
-          setFoodComment(
-            'No personalized recipes have been generated yet. Check back after Azuka creates your nutrition plan.'
-          );
-
-          return;
-        }
-
-
-        // ------------------------------------------------
-        // MAP API DATA TO UI DATA
-        // ------------------------------------------------
-
-        const mappedRecipes =
-          recipes.map(
-            mapApiRecipeToUiRecipe
-          );
-
-        setRecipesList(mappedRecipes);
-
-
-        // ------------------------------------------------
-        // CREATE NUTRITION COMMENT
-        // ------------------------------------------------
-
-        setFoodComment(
-          'These recipes have been personalized by Azuka to support your current nutritional and cycle needs.'
-        );
-
-      } catch (err: any) {
-
-        console.warn(
-          '[RecipeGenerator] Error loading recipes:',
-          err
-        );
-
-        setRecipesList([]);
-
-        setFoodComment(
-          'Your personalized recipes could not be loaded right now.'
-        );
-
-        setErrorMsg(
-          'Could not connect to the nutrition service. Please try again.'
-        );
-
-      } finally {
-
-        setLoading(false);
-      }
-
-    },
-    []
-  );
+    return recipes.map(
+      (recipe: any, index: number) =>
+        mapAzukaRecipeToUiRecipe(
+          recipe,
+          index
+        )
+    );
+  }, [recipes]);
 
 
   // ===================================================
-  // LOAD RECIPES ON MOUNT
+  // DEBUG
   // ===================================================
 
   useEffect(() => {
-    fetchNutritionGuidance();
-  }, [fetchNutritionGuidance]);
+    console.log(
+      '[RecipeGenerator] Recipes from AzukaContext:',
+      recipes
+    );
+  }, [recipes]);
+
+
+  // ===================================================
+  // UPDATE NUTRITION COMMENT
+  // ===================================================
+
+  useEffect(() => {
+    if (!recipes || recipes.length === 0) {
+      setFoodComment(
+        'No personalized recipes have been generated yet. Check back after Azuka creates your nutrition plan.'
+      );
+
+      return;
+    }
+
+    setFoodComment(
+      'These recipes have been personalized by Azuka to support your current nutritional and cycle needs.'
+    );
+  }, [recipes]);
+
+
+  // ===================================================
+  // REFRESH RECIPES
+  // ===================================================
+
+  const fetchNutritionGuidance =
+    useCallback(async () => {
+      try {
+        console.log(
+          '[RecipeGenerator] Refreshing recipes through AzukaContext...'
+        );
+
+        await refreshRecipes();
+
+        console.log(
+          '[RecipeGenerator] Recipes refreshed successfully.'
+        );
+
+      } catch (err) {
+        console.warn(
+          '[RecipeGenerator] Error refreshing recipes:',
+          err
+        );
+      }
+    }, [refreshRecipes]);
+
+
+  // ===================================================
+  // GENERATE DAILY PLAN
+  // ===================================================
+
+  const handleGeneratePlan =
+    useCallback(async () => {
+      try {
+        console.log(
+          '[RecipeGenerator] Generating daily plan through AzukaContext...'
+        );
+
+        await generatePlan();
+
+        console.log(
+          '[RecipeGenerator] Daily plan generated successfully.'
+        );
+
+      } catch (err) {
+        console.error(
+          '[RecipeGenerator] Failed to generate daily plan:',
+          err
+        );
+      }
+    }, [generatePlan]);
 
 
   // ===================================================
@@ -313,7 +345,7 @@ export default function RecipeGenerator() {
           .includes(query) ||
 
         recipe.tags.some((tag) =>
-          tag
+          String(tag)
             .toLowerCase()
             .includes(query)
         );
@@ -369,7 +401,9 @@ export default function RecipeGenerator() {
 
           {search.length > 0 && (
             <Pressable
-              onPress={() => setSearch('')}
+              onPress={() =>
+                setSearch('')
+              }
             >
               <X
                 size={16}
@@ -529,24 +563,24 @@ export default function RecipeGenerator() {
           ERROR CARD
       ================================================= */}
 
-      {errorMsg && (
+      {/* {error && (
 
         <ErrorCard
           title="Nutrition Sync Notice"
-          message={errorMsg}
+          message={error}
           onRetry={
             fetchNutritionGuidance
           }
         />
 
-      )}
+      )} */}
 
 
       {/* =================================================
           PHASE RECOMMENDATION
       ================================================= */}
 
-      {loading ? (
+      {isLoading ? (
 
         <View
           style={[
@@ -613,7 +647,7 @@ export default function RecipeGenerator() {
           RECIPE CARDS
       ================================================= */}
 
-      {loading ? (
+      {isLoading ? (
 
         <View style={{ gap: 16 }}>
 
@@ -654,7 +688,8 @@ export default function RecipeGenerator() {
           </Text>
 
           <Pressable
-            onPress={fetchNutritionGuidance}
+            onPress={handleGeneratePlan}
+            disabled={isGeneratingPlan}
             style={[
               styles.filterButton,
               {
@@ -667,10 +702,29 @@ export default function RecipeGenerator() {
             ]}
           >
 
-            <Sparkles
-              size={19}
-              color={Palette.textWhite}
-            />
+            {isGeneratingPlan ? (
+
+              <Text
+                style={{
+                  color:
+                    Palette.textWhite,
+                  fontSize: 11,
+                  fontWeight: '700',
+                }}
+              >
+                ...
+              </Text>
+
+            ) : (
+
+              <Sparkles
+                size={19}
+                color={
+                  Palette.textWhite
+                }
+              />
+
+            )}
 
           </Pressable>
 
@@ -890,7 +944,7 @@ export default function RecipeGenerator() {
                   (tag) => (
 
                     <View
-                      key={tag}
+                      key={String(tag)}
                       style={styles.tag}
                     >
 
@@ -899,7 +953,7 @@ export default function RecipeGenerator() {
                           styles.tagText
                         }
                       >
-                        {tag}
+                        {String(tag)}
                       </Text>
 
                     </View>

@@ -1,46 +1,42 @@
-
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Palette } from '../../constants/Styles';
 import { styles } from './styles';
-import { useAzuka } from '../../contexts/AzukaContext';
+
+// ============================================================
+// PROPS
+// ============================================================
+// All biometric values now flow down from Home.tsx, which is
+// the single source of truth reading AzukaContext. We no longer
+// call useAzuka() here directly to avoid a second, redundant
+// context read that can drift from what Home actually rendered.
 
 type Props = {
   onOpenSleepModal: () => void;
+
+  sleepHours?: number | null;
+  dailyRecoveryScore?: number | null;
+  stressLevel?: string | null;
+  phaseEnergyScore?: number | null;
+  strainOutputBalanceScore?: number | null;
 };
 
 export function BiometricGrid({
   onOpenSleepModal,
+  sleepHours,
+  dailyRecoveryScore,
+  stressLevel,
+  phaseEnergyScore,
+  strainOutputBalanceScore,
 }: Props) {
-  const { dailyState, dailyScore } = useAzuka();
-
-  // ============================================================
-  // AZUKA CONTEXT = SOURCE OF TRUTH
-  // ============================================================
-
-  const sleepHours =
-    dailyState?.sleep?.sleep_hours;
-
-  const dailyRecoveryScore =
-    dailyScore?.daily_recovery_score;
-
-  const stressLevel =
-    dailyScore?.stress_level;
-
-  const phaseEnergyScore =
-    dailyScore?.phase_energy_score;
-
-  const strainOutputBalanceScore =
-    dailyScore?.strain_output_balance_score;
-
   return (
     <View style={styles.biometricGrid}>
 
       {/* ========================================================
           SLEEP
-          Source: DailyState
+          Source: DailyState (passed from Home)
           ======================================================== */}
 
       <TouchableOpacity
@@ -89,7 +85,7 @@ export function BiometricGrid({
 
       {/* ========================================================
           DAILY RECOVERY
-          Source: DailyScore
+          Source: DailyScore (passed from Home)
           ======================================================== */}
 
       <View style={styles.biometricTile}>
@@ -128,7 +124,7 @@ export function BiometricGrid({
 
       {/* ========================================================
           STRESS LEVEL
-          Source: DailyScore
+          Source: DailyScore (passed from Home)
           ======================================================== */}
 
       <View style={styles.biometricTile}>
@@ -165,7 +161,7 @@ export function BiometricGrid({
 
       {/* ========================================================
           PHASE ENERGY
-          Source: DailyScore
+          Source: DailyScore (passed from Home)
           ======================================================== */}
 
       <View style={styles.biometricTile}>
@@ -204,7 +200,7 @@ export function BiometricGrid({
 
       {/* ========================================================
           STRAIN OUTPUT BALANCE
-          Source: DailyScore
+          Source: DailyScore (passed from Home)
           ======================================================== */}
 
       <View style={styles.biometricTile}>

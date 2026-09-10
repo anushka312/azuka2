@@ -1,41 +1,53 @@
 import os
+
 from google import genai
 from google.genai import types
 from google.genai.errors import APIError
 from dotenv import load_dotenv
 
-
 from ..prompts.system_prompt import AZUKA_SYSTEM_PROMPT
-from ..prompts.daily_prompt import AZUKA_DAILY_PROMPT # (or vision_prompt)
-from ..schemas.input import GeneralState, UserState # (if needed)
+from ..prompts.daily_prompt import AZUKA_DAILY_PROMPT
+from ..schemas.input import GeneralState, UserState
 from ..schemas.output import AzukaDailyOutput
+
+
 load_dotenv()
 
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+client = genai.Client(
+    api_key=os.environ.get("GEMINI_API_KEY")
+)
 
-# Define a prioritized list of text models to rotate through if rate limits hit
+
 FALLBACK_TEXT_MODELS = [
-    "gemini-2.5-flash",        # Primary workhorse model
-    "gemini-3.5-flash-lite",   # Fast, lightweight fallback model
-    "gemini-2.5-flash-lite"    # Alternate backup flash-lite model
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+    "gemini-3.5-flash",
+    "gemini-2.5-flash",
 ]
 
-def run_azuka_daily_agent(general_state: GeneralState, user_state: UserState) -> AzukaDailyOutput:
-    """
-    Runs the daily biological reasoning agent. Implements automatic fallback 
-    across multiple text-based Gemini models if a rate limit (429) occurs.
-    """
+
+def run_azuka_daily_agent(
+    general_state: GeneralState,
+    user_state: UserState
+) -> AzukaDailyOutput:
+
     payload = {
         "general_state": general_state.model_dump(),
-        "user_state": user_state.model_dump()
+        "user_state": user_state.model_dump(),
     }
-    
-    prompt_content = f"Here is the user's current profile and daily state payload:\n{payload}"
-    combined_system_instruction = f"{AZUKA_SYSTEM_PROMPT}\n\n{AZUKA_DAILY_PROMPT}"
+
+    prompt_content = (
+        "Here is the user's current profile and daily state payload:\n"
+        f"{payload}"
+    )
+
+    combined_system_instruction = (
+        f"{AZUKA_SYSTEM_PROMPT}\n\n"
+        f"{AZUKA_DAILY_PROMPT}"
+    )
 
     last_exception = None
 
-    # Loop through the model list to handle rate limits gracefully
     for model_name in FALLBACK_TEXT_MODELS:
         try:
             response = client.models.generate_content(
@@ -48,16 +60,31 @@ def run_azuka_daily_agent(general_state: GeneralState, user_state: UserState) ->
                     temperature=0.4,
                 ),
             )
+
+            if response.parsed is None:
+                raise ValueError(
+                    f"Model {model_name} returned no parsed response."
+                )
+
             return response.parsed
-            
+
         except APIError as e:
-            # Catch rate limit errors (typically code 429) or server errors and try the next model
             last_exception = e
-            continue
-        except Exception as e:
-            # Catch any other unexpected exceptions and try the next model
-            last_exception = e
+            print(
+                f"[AZUKA DAILY AGENT] API error with "
+                f"{model_name}: {e}"
+            )
             continue
 
-    # If all models in the fallback chain fail, raise the final exception
-    raise RuntimeError(f"All fallback text models failed to generate daily plan. Last error: {last_exception}")
+        except Exception as e:
+            last_exception = e
+            print(
+                f"[AZUKA DAILY AGENT] Error with "
+                f"{model_name}: {e}"
+            )
+            continue
+
+    raise RuntimeError(
+        "All fallback text models failed to generate "
+        f"daily plan. Last error: {last_exception}"
+    )

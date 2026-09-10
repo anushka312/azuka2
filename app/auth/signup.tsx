@@ -1,9 +1,8 @@
 
 import { useRouter } from 'expo-router';
-
 import { useState } from 'react';
-
 import {
+  Alert,
   Pressable,
   Text,
   TextInput,
@@ -12,7 +11,6 @@ import {
 
 import {
   createUserWithEmailAndPassword,
-  updateProfile,
 } from 'firebase/auth';
 
 import {
@@ -22,36 +20,20 @@ import {
 
 import { auth } from '@/services/firebase';
 
-import { useAuth } from '@/contexts/AuthContext';
-
 export default function SignupScreen() {
   const router = useRouter();
 
-  const { signIn } = useAuth();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
-  const [name, setName] =
-    useState('');
+  const [nameError, setNameError] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [firebaseError, setFirebaseError] = useState('');
 
-  const [email, setEmail] =
-    useState('');
-
-  const [password, setPassword] =
-    useState('');
-
-  const [nameError, setNameError] =
-    useState('');
-
-  const [emailError, setEmailError] =
-    useState('');
-
-  const [passwordError, setPasswordError] =
-    useState('');
-
-  const [firebaseError, setFirebaseError] =
-    useState('');
-
-  const [isLoading, setIsLoading] =
-    useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   /*
    * ============================================================
@@ -60,9 +42,7 @@ export default function SignupScreen() {
    */
 
   const validateEmail = (value: string) => {
-    return /\S+@\S+\.\S+/.test(
-      value.trim()
-    );
+    return /\S+@\S+\.\S+/.test(value.trim());
   };
 
   /*
@@ -72,175 +52,140 @@ export default function SignupScreen() {
    */
 
   const handleSignup = async () => {
-    const trimmedName =
-      name.trim();
-
-    const trimmedEmail =
-      email.trim();
-
-    const trimmedPassword =
-      password.trim();
-
-    const hasValidName =
-      trimmedName.length >= 2;
-
-    const hasValidEmail =
-      validateEmail(trimmedEmail);
-
-    const hasValidPassword =
-      trimmedPassword.length >= 6;
-
-    /*
-     * Validation errors
-     */
-
-    setNameError(
-      hasValidName
-        ? ''
-        : 'Please enter your name.'
-    );
-
-    setEmailError(
-      hasValidEmail
-        ? ''
-        : 'Please enter a valid email address.'
-    );
-
-    setPasswordError(
-      hasValidPassword
-        ? ''
-        : 'Password should be at least 6 characters.'
-    );
-
+    // Clear previous errors
+    setNameError('');
+    setEmailError('');
+    setPasswordError('');
     setFirebaseError('');
 
-    if (
-      !hasValidName ||
-      !hasValidEmail ||
-      !hasValidPassword
-    ) {
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+
+    /*
+     * ----------------------------------------------------------
+     * CLIENT-SIDE VALIDATION
+     * ----------------------------------------------------------
+     */
+
+    if (!trimmedName) {
+      setNameError('Please enter your name.');
       return;
     }
+
+    if (!trimmedEmail) {
+      setEmailError('Please enter your email.');
+      return;
+    }
+
+    if (!validateEmail(trimmedEmail)) {
+      setEmailError('Please enter a valid email address.');
+      return;
+    }
+
+    if (!password) {
+      setPasswordError('Please enter a password.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setPasswordError(
+        'Password must be at least 6 characters.'
+      );
+      return;
+    }
+
+    if (!confirmPassword) {
+      setPasswordError(
+        'Please confirm your password.'
+      );
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setPasswordError(
+        'Passwords do not match.'
+      );
+      return;
+    }
+
+    /*
+     * ----------------------------------------------------------
+     * CREATE FIREBASE AUTH ACCOUNT
+     *
+     * IMPORTANT:
+     * We do NOT use the Firebase UID here.
+     *
+     * Email is passed to profile setup.
+     *
+     * MongoDB profile creation happens separately during
+     * profile setup.
+     * ----------------------------------------------------------
+     */
 
     try {
       setIsLoading(true);
 
-      /*
-       * ========================================================
-       * STEP 1
-       *
-       * Create Firebase account.
-       *
-       * Firebase automatically signs the user in
-       * after successful account creation.
-       * ========================================================
-       */
-
-      const userCredential =
-        await createUserWithEmailAndPassword(
-          auth,
-          trimmedEmail,
-          trimmedPassword
-        );
-
-      const firebaseUser =
-        userCredential.user;
-
-      /*
-       * ========================================================
-       * STEP 2
-       *
-       * Save the user's name in Firebase.
-       * ========================================================
-       */
-
-      await updateProfile(
-        firebaseUser,
-        {
-          displayName: trimmedName,
-        }
+      await createUserWithEmailAndPassword(
+        auth,
+        trimmedEmail,
+        password
       );
 
       /*
-       * ========================================================
-       * STEP 3
+       * Firebase authentication account now exists.
        *
-       * Tell AuthContext that this user is authenticated.
+       * We intentionally do NOT:
        *
-       * IMPORTANT:
+       * - send Firebase UID to MongoDB
+       * - create MongoDB profile here
+       * - use Firebase UID as userId
        *
-       * We do NOT mark profileCompleted as true.
-       *
-       * This is a brand-new account, so onboarding
-       * still needs to happen.
-       *
-       * AuthContext's signIn() will see that there is
-       * no profile-completed flag for this Firebase UID
-       * and therefore set:
-       *
-       * profileCompleted = false
-       * ========================================================
+       * The next screen will collect the remaining profile
+       * information and create the MongoDB user using email.
        */
-
-      await signIn(
-        firebaseUser.uid,
-        trimmedName,
-        firebaseUser.email ??
-          trimmedEmail
-      );
-
-      /*
-       * ========================================================
-       * STEP 4
-       *
-       * Navigate to profile setup.
-       *
-       * We can do this directly because signup ALWAYS
-       * creates a brand-new account that hasn't completed
-       * onboarding yet.
-       * ========================================================
-       */
-
-      router.replace(
-        '/auth/profile-setup'
-      );
-
+      console.log(trimmedEmail, trimmedName);
+      
+      router.replace({
+        pathname: '/auth/profile-setup',
+        params: {
+          email: trimmedEmail,
+          name: trimmedName,
+        },
+      });
     } catch (error: any) {
-      console.error(
-        'Signup error:',
-        error
-      );
+      console.error('Signup error:', error);
 
-      switch (error.code) {
-        case 'auth/email-already-in-use':
-          setFirebaseError(
-            'An account with this email already exists.'
-          );
-          break;
+      let message =
+        'Something went wrong while creating your account.';
 
-        case 'auth/invalid-email':
-          setFirebaseError(
-            'Please enter a valid email address.'
-          );
-          break;
-
-        case 'auth/weak-password':
-          setFirebaseError(
-            'Password is too weak. Please choose a stronger password.'
-          );
-          break;
-
-        case 'auth/network-request-failed':
-          setFirebaseError(
-            'Network error. Please check your internet connection.'
-          );
-          break;
-
-        default:
-          setFirebaseError(
-            'Unable to create your account. Please try again.'
-          );
+      if (
+        error?.code === 'auth/email-already-in-use'
+      ) {
+        message =
+          'An account with this email already exists.';
+      } else if (
+        error?.code === 'auth/invalid-email'
+      ) {
+        message =
+          'Please enter a valid email address.';
+      } else if (
+        error?.code === 'auth/weak-password'
+      ) {
+        message =
+          'Your password is too weak. Use at least 6 characters.';
+      } else if (
+        error?.code === 'auth/network-request-failed'
+      ) {
+        message =
+          'Network error. Please check your internet connection and try again.';
       }
+
+      setFirebaseError(message);
+
+      Alert.alert(
+        'Signup failed',
+        message
+      );
     } finally {
       setIsLoading(false);
     }
@@ -303,6 +248,7 @@ export default function SignupScreen() {
           placeholder="Name"
           value={name}
           editable={!isLoading}
+          autoCapitalize="words"
           onChangeText={(value) => {
             setName(value);
 
@@ -384,6 +330,27 @@ export default function SignupScreen() {
           }}
         />
 
+        {/* CONFIRM PASSWORD */}
+
+        <TextInput
+          style={GlobalStyles.inputField}
+          placeholder="Confirm password"
+          secureTextEntry
+          value={confirmPassword}
+          editable={!isLoading}
+          onChangeText={(value) => {
+            setConfirmPassword(value);
+
+            if (passwordError) {
+              setPasswordError('');
+            }
+
+            if (firebaseError) {
+              setFirebaseError('');
+            }
+          }}
+        />
+
         {passwordError ? (
           <Text
             style={{
@@ -417,19 +384,14 @@ export default function SignupScreen() {
           style={[
             GlobalStyles.btnPrimary,
             {
-              backgroundColor:
-                Palette.forestGreen,
-              opacity: isLoading
-                ? 0.7
-                : 1,
+              backgroundColor: Palette.forestGreen,
+              opacity: isLoading ? 0.7 : 1,
             },
           ]}
           onPress={handleSignup}
         >
           <Text
-            style={
-              GlobalStyles.btnPrimaryText
-            }
+            style={GlobalStyles.btnPrimaryText}
           >
             {isLoading
               ? 'Creating account...'
@@ -441,17 +403,14 @@ export default function SignupScreen() {
 
         <Pressable
           disabled={isLoading}
-          onPress={() =>
-            router.back()
-          }
+          onPress={() => router.back()}
         >
           <Text
             style={[
               GlobalStyles.bodyText,
               {
                 textAlign: 'center',
-                textDecorationLine:
-                  'underline',
+                textDecorationLine: 'underline',
                 marginTop: 12,
               },
             ]}
@@ -463,3 +422,4 @@ export default function SignupScreen() {
     </View>
   );
 }
+

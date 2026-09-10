@@ -22,55 +22,99 @@ import {
 import {
   styles,
 } from '@/components/cycle/styles';
-import PhaseCardMock from '@/components/cycle/PhaseCardMock';
+
+import {
+  useAzuka,
+} from '@/contexts/AzukaContext';
 
 export default function CycleTabScreen() {
+
+  // ============================================================
+  // AZUKA CONTEXT
+  // ============================================================
+
+  const {
+    cycleHistory,
+  } = useAzuka();
+
+  // ============================================================
+  // CURRENT MONTH
+  // ============================================================
 
   const [
     currentDate,
     setCurrentDate,
   ] = useState(
-    new Date()
+    new Date(),
   );
-  const getTodayKey = () => {
-  const today = new Date();
 
-  return `${today.getFullYear()}-${String(
-    today.getMonth() + 1,
-  ).padStart(2, '0')}-${String(
-    today.getDate(),
-  ).padStart(2, '0')}`;
-};
+  // ============================================================
+  // TODAY KEY
+  // ============================================================
+
+  const getTodayKey = (): string => {
+    const today = new Date();
+
+    return `${today.getFullYear()}-${String(
+      today.getMonth() + 1,
+    ).padStart(2, '0')}-${String(
+      today.getDate(),
+    ).padStart(2, '0')}`;
+  };
+
+  // ============================================================
+  // SELECTED DATE
+  // ============================================================
+
   const [
     selectedDate,
     setSelectedDate,
   ] = useState<string | null>(
-    getTodayKey()
+    getTodayKey(),
   );
+
+  // ============================================================
+  // DAY DETAILS MODAL
+  // ============================================================
 
   const [
     modalVisible,
     setModalVisible,
   ] = useState(false);
 
+  // ============================================================
+  // MONTH CHANGE
+  // ============================================================
+
+  const handleMonthChange = (
+    date: Date,
+  ) => {
+    setCurrentDate(date);
+  };
+
+  // ============================================================
+  // DAY PRESS
+  // ============================================================
 
   const handleDayPress = (
-    dateKey: string
+    dateKey: string,
   ) => {
-
-    setSelectedDate(
-      dateKey
-    );
-
+    setSelectedDate(dateKey);
     setModalVisible(true);
   };
 
+  // ============================================================
+  // SELECTED DAY DATA
+  // ============================================================
 
   const selectedInfo =
     selectedDate
       ? dailyData[selectedDate]
       : undefined;
 
+  // ============================================================
+  // RENDER
+  // ============================================================
 
   return (
     <SafeAreaView
@@ -86,59 +130,73 @@ export default function CycleTabScreen() {
         }
       >
 
-        {/* HEADER */}
+        {/* ==================================================
+            HEADER
+            ================================================== */}
 
         <CycleHeader />
 
-
-        {/* CURRENT PHASE */}
+        {/* ==================================================
+            CURRENT PHASE
+            ================================================== */}
 
         <PhaseCard />
-        {/* <PhaseCardMock /> */}
 
-
-        {/* CALENDAR */}
+        {/* ==================================================
+            CALENDAR
+            ================================================== */}
 
         <CycleCalendar
           currentDate={
             currentDate
           }
+
           selectedDate={
             selectedDate
           }
+
           dailyData={
             dailyData
           }
-          onMonthChange={
-            setCurrentDate
+
+          cycleHistory={
+            cycleHistory
           }
+
+          onMonthChange={
+            handleMonthChange
+          }
+
           onDayPress={
             handleDayPress
           }
         />
 
-
-        {/* SIGNALS */}
+        {/* ==================================================
+            SIGNALS
+            ================================================== */}
 
         <SignalsSection
-          symptoms={selectedInfo?.symptomRecords}
+          symptoms={
+            selectedInfo?.symptomRecords
+          }
         />
 
       </ScrollView>
 
-
-      {/* DAY DETAILS */}
+      {/* ====================================================
+          DAY DETAILS
+          ==================================================== */}
 
       <DayDetailsSheet
         visible={
           modalVisible
         }
+
         selectedDate={
           selectedDate
         }
-        selectedInfo={
-          selectedInfo
-        }
+
         onClose={() =>
           setModalVisible(false)
         }

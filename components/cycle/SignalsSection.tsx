@@ -243,8 +243,11 @@ const getTodayDate = () => {
   return `${year}-${month}-${day}`;
 };
 
-// Convert MongoDB/context symptom object
-// into an array of symptom IDs for UI selection.
+// ============================================================
+// Convert DailyState symptom object
+// into an array of IDs for UI selection
+// ============================================================
+
 const getSelectedSymptomIds = (
   symptoms?: DailyState["symptoms"]
 ): string[] => {
@@ -310,9 +313,6 @@ export default function SignalsSection() {
 
   // ==========================================================
   // CONTEXT → UI
-  //
-  // Whenever dailyState changes, update the
-  // temporary modal state from Context.
   // ==========================================================
 
   useEffect(() => {
@@ -347,9 +347,6 @@ export default function SignalsSection() {
   // ==========================================================
 
   const openLogger = () => {
-    // Re-read everything from Context
-    // when opening the modal.
-
     setSelectedSymptoms(
       getSelectedSymptomIds(
         dailyState?.symptoms
@@ -470,8 +467,15 @@ export default function SignalsSection() {
   // ==========================================================
   // BUILD SYMPTOMS OBJECT
   //
-  // Converts UI IDs into the exact structure
-  // used by DAILY_STATES.
+  // IMPORTANT:
+  // We KEEP the categorized structure from api.ts.
+  //
+  // Example:
+  // {
+  //   pain: ["headache", "pelvic-pain"],
+  //   energy: ["fatigue"],
+  //   appetite: "cravings"
+  // }
   // ==========================================================
 
   const buildSymptomsObject =
@@ -554,6 +558,7 @@ export default function SignalsSection() {
     try {
       setSaving(true);
 
+      // KEEP categorized symptom structure.
       const symptoms =
         buildSymptomsObject();
 
@@ -603,7 +608,7 @@ export default function SignalsSection() {
   };
 
   // ==========================================================
-  // DERIVED DATA FROM CONTEXT
+  // DERIVED DATA
   // ==========================================================
 
   const hasLoggedData =

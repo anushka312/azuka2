@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from app.database.daily_state_repository import (
     create_daily_state,
     get_daily_state,
+    get_all_daily_states,
     update_daily_state
 )
 
@@ -15,7 +16,7 @@ from app.schemas.daily_state_schema import (
 )
 
 
-def create_user_daily_state(
+async def create_user_daily_state(
     user_id: str,
     daily_state: DailyStateCreate
 ):
@@ -28,7 +29,7 @@ def create_user_daily_state(
         )
 
     # Check if a daily state already exists
-    existing_state = get_daily_state(
+    existing_state = await get_daily_state(
         user_id,
         daily_state.date
     )
@@ -51,17 +52,19 @@ def create_user_daily_state(
     daily_state_data["created_at"] = now
     daily_state_data["updated_at"] = now
 
-    daily_state_id = create_daily_state(
+    daily_state_id = await create_daily_state(
         daily_state_data
     )
 
     return {
         "daily_state_id": daily_state_id,
-        "message": "Daily state created successfully."
+        "message": "Daily state created successfully.",
+        "daily_state": daily_state
+
     }
 
 
-def get_user_daily_state(
+async def get_user_daily_state(
     user_id: str,
     date: str
 ):
@@ -73,7 +76,7 @@ def get_user_daily_state(
             detail="Invalid user_id."
         )
 
-    daily_state = get_daily_state(
+    daily_state = await get_daily_state(
         user_id,
         date
     )
@@ -105,7 +108,51 @@ def get_user_daily_state(
     return daily_state
 
 
-def update_user_daily_state(
+async def get_user_daily_states(
+    user_id: str
+):
+    try:
+        ObjectId(user_id)
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid user_id."
+        )
+
+    daily_states = await get_all_daily_states(
+        user_id
+    )
+
+    formatted_states = []
+
+    for daily_state in daily_states:
+
+        daily_state["_id"] = str(
+            daily_state["_id"]
+        )
+
+        daily_state["user_id"] = str(
+            daily_state["user_id"]
+        )
+
+        if daily_state.get("created_at"):
+            daily_state["created_at"] = (
+                daily_state["created_at"].isoformat()
+            )
+
+        if daily_state.get("updated_at"):
+            daily_state["updated_at"] = (
+                daily_state["updated_at"].isoformat()
+            )
+
+        formatted_states.append(
+            daily_state
+        )
+
+    return formatted_states
+
+
+async def update_user_daily_state(
     user_id: str,
     date: str,
     daily_state: DailyStateUpdate
@@ -118,7 +165,7 @@ def update_user_daily_state(
             detail="Invalid user_id."
         )
 
-    existing_state = get_daily_state(
+    existing_state = await get_daily_state(
         user_id,
         date
     )
@@ -141,7 +188,7 @@ def update_user_daily_state(
 
     update_data["updated_at"] = datetime.utcnow()
 
-    update_daily_state(
+    await update_daily_state(
         user_id,
         date,
         update_data

@@ -14,9 +14,7 @@ import {
 
 import { StatusBar } from 'expo-status-bar';
 
-import {
-  useEffect,
-} from 'react';
+import { useEffect } from 'react';
 
 import 'react-native-reanimated';
 
@@ -33,24 +31,22 @@ import {
   useColorScheme,
 } from '@/hooks/use-color-scheme';
 
-/*
- * ============================================================
- * EXPO ROUTER SETTINGS
- * ============================================================
- */
+
+// ============================================================
+// EXPO ROUTER SETTINGS
+// ============================================================
 
 export const unstable_settings = {
   anchor: 'index',
 };
 
-/*
- * ============================================================
- * AUTH REDIRECT
- * ============================================================
- */
 
+// ============================================================
+// AUTH REDIRECT
+// ============================================================
 
 function AuthRedirect() {
+
   const {
     isAuthenticated,
     isLoading,
@@ -58,83 +54,118 @@ function AuthRedirect() {
   } = useAuth();
 
   const router = useRouter();
+
   const segments = useSegments();
 
+
   useEffect(() => {
-    // Wait until AuthContext has restored the user.
+
+    // --------------------------------------------------------
+    // Wait until AuthContext has finished restoring auth state
+    // --------------------------------------------------------
+
     if (isLoading) {
       return;
     }
 
+
     const currentGroup = segments[0];
+
     const currentScreen = segments[1];
 
-    const inAuth = currentGroup === 'auth';
+
+    const inAuth =
+      currentGroup === 'auth';
+
     const inProfileSetup =
       currentGroup === 'auth' &&
       currentScreen === 'profile-setup';
 
-    const inTabs = currentGroup === '(tabs)';
-    const inSettings = currentGroup === 'settings';
-    const inModal = currentGroup === 'modal';
+    const inTabs =
+      currentGroup === '(tabs)';
+
+    const inSettings =
+      currentGroup === 'settings';
+
+    const inModal =
+      currentGroup === 'modal';
+
 
     // ========================================================
-    // NOT LOGGED IN
+    // 1. NOT AUTHENTICATED
     // ========================================================
 
     if (!isAuthenticated) {
-      // Welcome screen is allowed.
+
+      // Root / Welcome screen
       if (!currentGroup) {
         return;
       }
 
-      // Login / signup are allowed.
+      // Login / Signup / Profile setup
       if (inAuth) {
         return;
       }
 
-      // Everything else requires authentication.
+      // Everything else requires authentication
       router.replace('/auth/login');
+
       return;
     }
 
+
     // ========================================================
-    // LOGGED IN BUT PROFILE NOT COMPLETE
+    // 2. AUTHENTICATED BUT PROFILE NOT COMPLETE
     // ========================================================
 
     if (!profileCompleted) {
-      // Stay on profile setup.
+
+      // User must stay on Profile Setup
       if (inProfileSetup) {
         return;
       }
 
       router.replace('/auth/profile-setup');
+
       return;
     }
 
+
     // ========================================================
-    // LOGGED IN + PROFILE COMPLETE
+    // 3. AUTHENTICATED + PROFILE COMPLETE
     // ========================================================
 
-    // Don't allow completed users to stay on login/signup.
+    // Don't allow completed users to stay inside auth
     if (inAuth) {
+
       router.replace('/(tabs)/home');
+
       return;
     }
 
-    // Don't allow completed users to stay on welcome screen.
+
+    // Don't allow completed users to stay on welcome
     if (!currentGroup) {
+
       router.replace('/(tabs)/home');
+
       return;
     }
 
-    // Already inside the main app.
-    if (inTabs || inSettings || inModal) {
+
+    // Main application routes
+    if (
+      inTabs ||
+      inSettings ||
+      inModal
+    ) {
       return;
     }
 
-    // Any other unknown route goes to Home.
+
+    // Unknown route
     router.replace('/(tabs)/home');
+
   }, [
     isAuthenticated,
     isLoading,
@@ -143,39 +174,52 @@ function AuthRedirect() {
     router,
   ]);
 
+
   return null;
 }
 
 
-
-/*
- * ============================================================
- * APP CONTENT
- * ============================================================
- */
+// ============================================================
+// APP CONTENT
+// ============================================================
 
 function AppLayout() {
+
   const colorScheme =
     useColorScheme();
 
-  const [fontsLoaded] =
-    useFonts({
-      'ArchivoBlack-Regular':
-        require(
-          '@/assets/fonts/ArchivoBlack-Regular.ttf'
-        ),
-    });
 
-  /*
-   * Wait for fonts.
-   */
+  // ==========================================================
+  // FONTS
+  // ==========================================================
+
+  const [fontsLoaded] = useFonts({
+
+    'ArchivoBlack-Regular':
+      require(
+        '@/assets/fonts/ArchivoBlack-Regular.ttf'
+      ),
+
+  });
+
+
+  // ==========================================================
+  // WAIT FOR FONTS
+  // ==========================================================
 
   if (!fontsLoaded) {
     return null;
   }
 
+
+  // ==========================================================
+  // APP
+  // ==========================================================
+
   return (
+
     <AzukaProvider>
+
       <ThemeProvider
         value={
           colorScheme === 'dark'
@@ -183,23 +227,22 @@ function AppLayout() {
             : DefaultTheme
         }
       >
-        {/*
-         * AuthRedirect is INSIDE AuthProvider
-         * because it uses useAuth().
-         */}
 
         <AuthRedirect />
+
 
         <Stack
           screenOptions={{
             headerShown: false,
           }}
         >
+
           {/* ROOT */}
 
           <Stack.Screen
             name="index"
           />
+
 
           {/* AUTH */}
 
@@ -215,6 +258,7 @@ function AppLayout() {
             name="auth/profile-setup"
           />
 
+
           {/* MAIN APP */}
 
           <Stack.Screen
@@ -223,6 +267,7 @@ function AppLayout() {
               headerShown: false,
             }}
           />
+
 
           {/* MODAL */}
 
@@ -234,31 +279,38 @@ function AppLayout() {
             }}
           />
 
+
           {/* SETTINGS */}
 
           <Stack.Screen
             name="settings"
           />
+
         </Stack>
 
-        <StatusBar
-          style="auto"
-        />
+
+        <StatusBar style="auto" />
+
       </ThemeProvider>
+
     </AzukaProvider>
   );
 }
 
-/*
- * ============================================================
- * ROOT LAYOUT
- * ============================================================
- */
+
+// ============================================================
+// ROOT LAYOUT
+// ============================================================
 
 export default function RootLayout() {
+
   return (
+
     <AuthProvider>
+
       <AppLayout />
+
     </AuthProvider>
+
   );
 }

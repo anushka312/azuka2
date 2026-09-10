@@ -1,15 +1,14 @@
 from datetime import date
 
 from app.database.recipe_repository import (
-get_todays_recipes
+    get_todays_recipes
 )
 
-def get_user_recipes(user_id: str):
-
+async def get_user_recipes(user_id: str):
 
     today = date.today().isoformat()
 
-    recipe_document = get_todays_recipes(
+    recipe_document = await get_todays_recipes(
         user_id,
         today
     )
@@ -23,13 +22,12 @@ def get_user_recipes(user_id: str):
     )
 
 
-def get_user_recipes_by_tag(
-user_id: str,
-tag: str
+async def get_user_recipes_by_tag(
+    user_id: str,
+    tag: str
 ):
 
-
-    recipes = get_user_recipes(
+    recipes = await get_user_recipes(
         user_id
     )
 
@@ -38,4 +36,3 @@ tag: str
         for recipe in recipes
         if tag in recipe.get("tags", [])
     ]
-

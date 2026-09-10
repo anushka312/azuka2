@@ -12,10 +12,10 @@ router = APIRouter(
 
 
 @router.get("/{user_id}")
-def get_daily_scores(user_id: str):
+async def get_daily_scores(user_id: str):
 
     try:
-        return get_user_daily_scores(
+        return await get_user_daily_scores(
             user_id
         )
 
@@ -27,13 +27,13 @@ def get_daily_scores(user_id: str):
 
 
 @router.get("/{user_id}/recent")
-def get_recent_scores(
+async def get_recent_scores(
     user_id: str,
     limit: int = 7
 ):
 
     try:
-        return get_user_recent_scores(
+        return await get_user_recent_scores(
             user_id,
             limit
         )

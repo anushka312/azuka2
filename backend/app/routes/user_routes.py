@@ -21,33 +21,40 @@ router = APIRouter(
 
 
 @router.post("")
-def create_profile(
+async def create_profile(
     user_data: UserProfileCreate
 ):
-    return create_user_profile(user_data)
+    print("[BACKEND] POST /api/user-profile received")
+    print(f"[BACKEND] User email: {user_data.email}")
+    try:
+        result = await create_user_profile(user_data)
+        print(f"[BACKEND] Profile created successfully. user_id={result.get('user_id')}")
+        return result
+    except Exception as e:
+        print(f"[BACKEND] ERROR creating profile: {str(e)}")
+        raise
 
 
 @router.get("/email/{email}")
-def get_profile_by_email(
+async def get_profile_by_email(
     email: str
 ):
-    return get_user_profile_by_email(email)
+    return await get_user_profile_by_email(email)
 
 
 @router.get("/{user_id}")
-def get_profile(
+async def get_profile(
     user_id: str
 ):
-    return get_user_profile(user_id)
+    return await get_user_profile(user_id)
 
 
 @router.put("/{user_id}")
-def update_profile(
+async def update_profile(
     user_id: str,
     user_data: UserProfileUpdate
 ):
-    return update_user_profile(
+    return await update_user_profile(
         user_id,
         user_data
     )
-

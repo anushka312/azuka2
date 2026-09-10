@@ -1,6 +1,5 @@
 
 import React from 'react';
-
 import { View, Text } from 'react-native';
 
 import { useAzuka } from '../../contexts/AzukaContext';
@@ -8,30 +7,93 @@ import { useAzuka } from '../../contexts/AzukaContext';
 import { styles } from './styles';
 
 export function CycleStatusCard() {
-  const { dailyState } = useAzuka();
+  const { userProfile, dailyScore } = useAzuka();
 
   // ============================================================
-  // AZUKA CONTEXT = SOURCE OF TRUTH
+  // USER PROFILE CYCLE DATA
   // ============================================================
 
-  const phase = dailyState?.phase;
-  const cycleDay = dailyState?.day;
-  const comment = dailyState?.comment;
+  const lastPeriodStartDate =
+    userProfile?.cycle?.last_period_start_date;
+
+  const cycleLength =
+    userProfile?.general_state?.average_cycle_length ?? 28;
+
+  const periodDuration =
+    userProfile?.general_state?.period_duration ?? 5;
 
   // ============================================================
-  // DISPLAY MESSAGE
+  // CALCULATE TODAY'S CYCLE DAY
+  // ============================================================
+
+  let cycleDay: number | null = null;
+  let phase: string | null = null;
+
+  if (lastPeriodStartDate) {
+    const startDate = new Date(
+      `${lastPeriodStartDate}T12:00:00`,
+    );
+
+    const today = new Date();
+
+    const todayDate = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+      12,
+      0,
+      0,
+    );
+
+    const difference =
+      Math.floor(
+        (todayDate.getTime() - startDate.getTime()) /
+          (1000 * 60 * 60 * 24),
+      );
+
+    cycleDay =
+      ((difference % cycleLength) + cycleLength) %
+        cycleLength +
+      1;
+
+    // ==========================================================
+    // CALCULATE PHASE
+    // ==========================================================
+
+    if (cycleDay <= periodDuration) {
+      phase = 'Menstrual';
+    } else {
+      const ovulationDay =
+        Math.round(cycleLength / 2);
+
+      if (cycleDay < ovulationDay) {
+        phase = 'Follicular';
+      } else if (cycleDay === ovulationDay) {
+        phase = 'Ovulation';
+      } else {
+        phase = 'Luteal';
+      }
+    }
+  }
+
+  // ============================================================
+  // AZUKA DAILY GUIDANCE
   // ============================================================
 
   const displayMessage =
-    comment ||
+    dailyScore?.comment ??
     'Your daily guidance is being personalized based on your current cycle phase and body state.';
+
+  // ============================================================
+  // RENDER
+  // ============================================================
 
   return (
     <View style={styles.cycleCard}>
 
       {/* ========================================================
           HEADER
-          ======================================================== */}
+      ======================================================== */}
 
       <View style={styles.cycleCardHeader}>
         <View style={styles.phaseBadge}>
@@ -53,7 +115,7 @@ export function CycleStatusCard() {
 
       {/* ========================================================
           AZUKA DAILY GUIDANCE
-          ======================================================== */}
+      ======================================================== */}
 
       <Text style={styles.orchestratorMessage}>
         {displayMessage}

@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 
 from ..prompts.system_prompt import AZUKA_SYSTEM_PROMPT
-from ..prompts.daily_prompt import AZUKA_VISION_PROMPT # (or vision_prompt)
+from ..prompts.vision_prompt import AZUKA_VISION_PROMPT # (or vision_prompt)
 from ..schemas.output import FoodVisionOutput
 load_dotenv()
 
@@ -15,8 +15,9 @@ client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 # Prioritized multimodal models with fallback rotation for vision requests
 FALLBACK_VISION_MODELS = [
-    "gemini-2.5-flash",       # Primary multimodal model for fast vision analysis
-    "gemini-3.5-flash-lite",  # Fallback multimodal model
+    "gemini-3.5-flash",       # Primary multimodal model (250K TPM)
+    "gemini-3.5-flash-lite",  # Secondary high-speed multimodal option
+    "gemini-2.5-flash",       # Backup model
 ]
 
 def run_azuka_vision_agent(image_bytes: bytes, mime_type: str = "image/jpeg") -> FoodVisionOutput:

@@ -206,6 +206,9 @@ export const styles = StyleSheet.create({
   // ==========================================
   // ANALYTICS & CHART
   // ==========================================
+  // ==========================================
+  // ANALYTICS & CHART
+  // ==========================================
   analyticsCard: {
     padding: 16,
     borderRadius: 20,
@@ -225,6 +228,7 @@ export const styles = StyleSheet.create({
   chartBarCol: {
     alignItems: 'center',
     flex: 1,
+    height: '100%', // <-- Added this to fix column height layout
   },
   barTrack: {
     height: 80,

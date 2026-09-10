@@ -39,8 +39,7 @@ end_date: str
 ):
 
 
-    return await list(
-        workouts_collection.find(
+    return await workouts_collection.find(
             {
                 "user_id": ObjectId(user_id),
                 "date": {
@@ -51,8 +50,7 @@ end_date: str
         ).sort(
             "date",
             1
-        )
-    )
+        ).to_list(length=None)
 
 
 async def update_workout(

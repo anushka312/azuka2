@@ -20,40 +20,40 @@ router = APIRouter(
 
 
 @router.post("/{user_id}")
-def create_cycle(
+async def create_cycle(
     user_id: str,
     cycle_data: CycleCreate
 ):
-    return create_cycle_record(
+    return await create_cycle_record(
         user_id,
         cycle_data
     )
 
 
 @router.get("/{user_id}")
-def get_cycles(
+async def get_cycles(
     user_id: str
 ):
-    return get_user_cycle_history(
+    return await get_user_cycle_history(
         user_id
     )
 
 
 @router.get("/{user_id}/latest")
-def get_latest_cycle(
+async def get_latest_cycle(
     user_id: str
 ):
-    return get_latest_user_cycle(
+    return await get_latest_user_cycle(
         user_id
     )
 
 
 @router.put("/{cycle_id}")
-def update_cycle(
+async def update_cycle(
     cycle_id: str,
     cycle_data: CycleUpdate
 ):
-    return update_cycle_record(
+    return await update_cycle_record(
         cycle_id,
         cycle_data
     )

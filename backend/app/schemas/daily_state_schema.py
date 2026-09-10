@@ -1,13 +1,14 @@
 from typing import Optional, List
+from pydantic import BaseModel, Field
 
-from pydantic import BaseModel
 
-
-class Symptom(BaseModel):
-    id: str
-    name: str
-    category: str
-    detail: Optional[str] = None
+class SymptomsState(BaseModel):
+    pain: List[str] = Field(default_factory=list)
+    energy: List[str] = Field(default_factory=list)
+    digestive: List[str] = Field(default_factory=list)
+    appetite: Optional[str] = None
+    mood: List[str] = Field(default_factory=list)
+    physical: List[str] = Field(default_factory=list)
 
 
 class PeriodState(BaseModel):
@@ -25,23 +26,18 @@ class SleepState(BaseModel):
 
 class DailyStateCreate(BaseModel):
     date: str
-
     phase: Optional[str] = None
     day: Optional[int] = None
-
-    symptoms: List[Symptom] = []
-
+    symptoms: SymptomsState = Field(
+        default_factory=SymptomsState
+    )
     period: Optional[PeriodState] = None
-
     sleep: Optional[SleepState] = None
 
 
 class DailyStateUpdate(BaseModel):
     phase: Optional[str] = None
     day: Optional[int] = None
-
-    symptoms: Optional[List[Symptom]] = None
-
+    symptoms: Optional[SymptomsState] = None
     period: Optional[PeriodState] = None
-
     sleep: Optional[SleepState] = None

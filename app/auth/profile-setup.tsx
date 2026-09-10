@@ -1,5 +1,5 @@
 
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 
 import {
@@ -20,29 +20,10 @@ import DateTimePicker, {
 
 import { GlobalStyles, Palette } from '@/constants/Styles';
 import { useAuth } from '@/contexts/AuthContext';
-
+import { UserProfile } from '@/services/api';
 import {
-  createUserProfile,
-  generateDailyPlan,
-  UserProfile,
-} from '@/services/api';
-
-/* =========================================================
-   API MODE
-   =========================================================
-
-   true  = use mock API
-   false = use real backend API
-
-   When backend is ready, simply change this to false.
-========================================================= */
-
-const USE_MOCK_API = true;
-
-
-/* =========================================================
-   OPTIONS
-========================================================= */
+  createCycle,
+} from "@/services/api";
 
 const cycleModes = [
   'Natural Cycle',
@@ -110,161 +91,134 @@ const frictionOptions = [
   'Under-fueling',
 ];
 
-
-/* =========================================================
-   MOCK API
-   =========================================================
-
-   These functions simulate what the backend would do.
-
-   Later you don't need to delete them.
-   Just set USE_MOCK_API = false.
-========================================================= */
-
-const mockCreateUserProfile = async (
-  profile: UserProfile
-) => {
-  console.log(
-    '========================================'
+function parseDate(
+  value: string,
+): Date {
+  return new Date(
+    `${value}T12:00:00`,
   );
+}
 
-  console.log(
-    'MOCK: createUserProfile()'
-  );
+function formatDate(
+  date: Date,
+): string {
+  const year =
+    date.getFullYear();
 
-  console.log(
-    'Profile that would be sent to backend:'
-  );
+  const month =
+    String(date.getMonth() + 1)
+      .padStart(2, "0");
 
-  console.log(
-    JSON.stringify(profile, null, 2)
-  );
+  const day =
+    String(date.getDate())
+      .padStart(2, "0");
 
-  console.log(
-    '========================================'
-  );
+  return `${year}-${month}-${day}`;
+}
 
-  // Simulate network delay
-  await new Promise((resolve) =>
-    setTimeout(resolve, 1000)
-  );
+function calculatePhase(
+  cycleDay: number,
+  periodDuration: number,
+  cycleLength: number,
+): string {
+  if (
+    cycleDay >= 1 &&
+    cycleDay <= periodDuration
+  ) {
+    return "Menstrual";
+  }
 
-  return {
-    success: true,
-    message: 'Mock profile created successfully',
-  };
-};
+  const ovulationDay =
+    Math.round(
+      cycleLength / 2,
+    );
 
+  if (
+    cycleDay <
+    ovulationDay
+  ) {
+    return "Follicular";
+  }
 
-const mockGenerateDailyPlan = async (
-  userId: string
-) => {
-  console.log(
-    '========================================'
-  );
+  if (
+    cycleDay ===
+    ovulationDay
+  ) {
+    return "Ovulation";
+  }
 
-  console.log(
-    'MOCK: generateDailyPlan()'
-  );
-
-  console.log(
-    'User ID:',
-    userId
-  );
-
-  console.log(
-    'Generating fake daily AI plan...'
-  );
-
-  console.log(
-    '========================================'
-  );
-
-  // Simulate AI generation delay
-  await new Promise((resolve) =>
-    setTimeout(resolve, 1500)
-  );
-
-  // This is an example of what your
-  // daily agent could eventually return.
-  return {
-    success: true,
-
-    plan: {
-      date: new Date()
-        .toISOString()
-        .split('T')[0],
-
-      phase: 'Follicular',
-
-      workout: {
-        name: 'Full Body Strength',
-        duration: 35,
-        intensity: 'Moderate',
-      },
-
-      recovery: {
-        priority: 'Medium',
-        recommendation:
-          'Take a short walk and prioritize sleep tonight.',
-      },
-
-      nutrition: {
-        focus: 'Balanced protein and complex carbohydrates',
-      },
-    },
-  };
-};
-
-
-/* =========================================================
-   PROFILE SETUP SCREEN
-========================================================= */
+  return "Luteal";
+}
 
 export default function ProfileSetupScreen() {
-
   const router = useRouter();
 
   /*
-   * AuthContext gets the currently authenticated Firebase user.
+   * SignupScreen passes:
    *
-   * user.userId -> Firebase UID
-   * user.name   -> Firebase display name
-   * user.email  -> Firebase email
+   * {
+   *   email,
+   *   name
+   * }
+   *
+   * These values are used to create the NEW MongoDB profile.
    */
+  const params = useLocalSearchParams<{
+    email?: string;
+    name?: string;
+  }>();
 
-  const {
-    user,
-    completeProfile,
-  } = useAuth();
+  const signupEmail =
+    typeof params.email === 'string'
+      ? params.email.trim()
+      : '';
 
+  const signupName =
+    typeof params.name === 'string'
+      ? params.name.trim()
+      : '';
 
-  /* =======================================================
-     GENERAL STATE
-  ======================================================= */
+  /*
+   * IMPORTANT:
+   *
+   * ProfileSetup does NOT use AzukaContext to create
+   * the MongoDB profile.
+   *
+   * AuthContext owns the authenticated MongoDB user:
+   *
+   * ProfileSetup
+   *      ↓
+   * completeProfile(profile)
+   *      ↓
+   * MongoDB profile created
+   *      ↓
+   * MongoDB _id returned
+   *      ↓
+   * AuthContext stores it as user.userId
+   *
+   * AzukaContext can then load the user's data from
+   * the authenticated AuthContext state.
+   */
+  const { completeProfile } = useAuth();
 
   const [step, setStep] = useState(1);
 
-
-  /* =======================================================
-     STEP 1
-  ======================================================= */
+  // ============================================================
+  // STEP 1
+  // ============================================================
 
   const [age, setAge] = useState('');
   const [ageError, setAgeError] = useState('');
 
-  const [cycleMode, setCycleMode] =
-    useState(cycleModes[0]);
+  const [cycleMode, setCycleMode] = useState(
+    cycleModes[0]
+  );
 
-  const [lastPeriod, setLastPeriod] =
-    useState('');
-
+  const [lastPeriod, setLastPeriod] = useState('');
   const [lastPeriodError, setLastPeriodError] =
     useState('');
 
-  const [cycleLength, setCycleLength] =
-    useState('28');
-
+  const [cycleLength, setCycleLength] = useState('28');
   const [cycleLengthError, setCycleLengthError] =
     useState('');
 
@@ -274,120 +228,85 @@ export default function ProfileSetupScreen() {
   const [selectedDate, setSelectedDate] =
     useState(new Date());
 
-  const [symptoms, setSymptoms] =
-    useState<string[]>([
-      'High Fatigue',
-    ]);
+  const [symptoms, setSymptoms] = useState<string[]>([
+    'High Fatigue',
+  ]);
 
+  // ============================================================
+  // STEP 2
+  // ============================================================
 
-  /* =======================================================
-     STEP 2
-  ======================================================= */
+  const [focus, setFocus] = useState(
+    focusOptions[1].title
+  );
 
-  const [focus, setFocus] =
-    useState(focusOptions[1].title);
+  const [fitnessLevel, setFitnessLevel] = useState(
+    'Intermediate'
+  );
 
-  const [fitnessLevel, setFitnessLevel] =
-    useState('Intermediate');
+  const [equipment, setEquipment] = useState<string[]>([
+    'Home',
+  ]);
 
-  const [equipment, setEquipment] =
-    useState<string[]>([
-      'Home',
-    ]);
+  const [stressLevel, setStressLevel] = useState(3);
 
-  const [stressLevel, setStressLevel] =
-    useState(3);
+  // ============================================================
+  // STEP 3
+  // ============================================================
 
+  const [diet, setDiet] = useState('Omnivore');
 
-  /* =======================================================
-     STEP 3
-  ======================================================= */
-
-  const [diet, setDiet] =
-    useState('Omnivore');
-
-  const [allergies, setAllergies] =
-    useState<string[]>([
-      'Dairy-Free',
-    ]);
+  const [allergies, setAllergies] = useState<string[]>([
+    'Dairy-Free',
+  ]);
 
   const [frictionPoint, setFrictionPoint] =
     useState<string[]>([
       'Late-night Cravings',
     ]);
 
-
   const [isProcessing, setIsProcessing] =
     useState(false);
 
-
-  /* =======================================================
-     MULTI SELECT
-  ======================================================= */
+  // ============================================================
+  // HELPERS
+  // ============================================================
 
   const toggleSelection = (
     value: string,
     current: string[],
     setCurrent: (value: string[]) => void
   ) => {
-
     if (current.includes(value)) {
-
       setCurrent(
-        current.filter(
-          (item) => item !== value
-        )
+        current.filter((item) => item !== value)
       );
-
     } else {
-
-      setCurrent([
-        ...current,
-        value,
-      ]);
-
+      setCurrent([...current, value]);
     }
   };
 
+  const formatDate = (date: Date): string => {
+    const year = date.getFullYear();
 
-  /* =======================================================
-     DATE FORMAT
-  ======================================================= */
+    const month = String(
+      date.getMonth() + 1
+    ).padStart(2, '0');
 
-  const formatDate = (
-    date: Date
-  ): string => {
-
-    const year =
-      date.getFullYear();
-
-    const month =
-      String(
-        date.getMonth() + 1
-      ).padStart(2, '0');
-
-    const day =
-      String(
-        date.getDate()
-      ).padStart(2, '0');
+    const day = String(
+      date.getDate()
+    ).padStart(2, '0');
 
     return `${year}-${month}-${day}`;
   };
-
-
-  /* =======================================================
-     DATE PICKER
-  ======================================================= */
 
   const handleDateChange = (
     _event: DateTimePickerEvent,
     date?: Date
   ) => {
-
     setShowDatePicker(false);
 
     if (date) {
-
       setSelectedDate(date);
 
       setLastPeriod(
@@ -400,15 +319,12 @@ export default function ProfileSetupScreen() {
     }
   };
 
-
-  /* =======================================================
-     VALIDATE STEP 1
-  ======================================================= */
+  // ============================================================
+  // STEP 1 VALIDATION
+  // ============================================================
 
   const validateStepOne = () => {
-
-    const trimmedDate =
-      lastPeriod.trim();
+    const trimmedDate = lastPeriod.trim();
 
     const datePattern =
       /^\d{4}-\d{2}-\d{2}$/;
@@ -432,13 +348,11 @@ export default function ProfileSetupScreen() {
       ageValue >= 13 &&
       ageValue <= 100;
 
-
     setLastPeriodError(
       isValidDate
         ? ''
         : 'Please select a valid date.'
     );
-
 
     setCycleLengthError(
       isValidCycle
@@ -446,109 +360,76 @@ export default function ProfileSetupScreen() {
         : 'Cycle length should be between 21 and 45 days.'
     );
 
-
     setAgeError(
       isValidAge
         ? ''
         : 'Please enter an age between 13 and 100.'
     );
 
-
     if (
       isValidDate &&
       isValidCycle &&
       isValidAge
     ) {
-
       setStep(2);
     }
   };
 
-
-  /* =======================================================
-     COMPLETE PROFILE
-  ======================================================= */
+  // ============================================================
+  // CREATE MONGODB PROFILE
+  // ============================================================
 
   const handleComplete = async () => {
-
     /*
-     * Make sure Firebase user exists.
+     * The email and name should have been passed from
+     * SignupScreen.
      */
-
-    if (!user) {
-
+    if (!signupEmail) {
       Alert.alert(
-        'Authentication error',
-        'Your login session could not be found. Please log in again.'
+        'Signup information missing',
+        'Your account email could not be found. Please restart signup.'
       );
 
-      router.replace('/auth/login');
-
+      router.replace('/auth/signup');
       return;
     }
 
-
-    /*
-     * Firebase UID
-     */
-
-    const firebaseUserId =
-      user.userId;
-
-
-    if (!firebaseUserId) {
-
+    if (!signupName) {
       Alert.alert(
-        'Authentication error',
-        'Your Firebase account could not be identified. Please log in again.'
+        'Signup information missing',
+        'Your name could not be found. Please restart signup.'
       );
 
-      router.replace('/auth/login');
-
+      router.replace('/auth/signup');
       return;
     }
-
 
     try {
-
       setIsProcessing(true);
 
-
-      /* ===================================================
-         BUILD PROFILE
-      =================================================== */
-
+      /*
+       * Build the MongoDB profile.
+       *
+       * IMPORTANT:
+       * There is NO Firebase UID here.
+       *
+       * The backend finds/creates the MongoDB user
+       * using the email.
+       */
       const profile: UserProfile = {
-
-        user_id:
-          firebaseUserId,
-
-        name:
-          user.name,
-
-        email:
-          user.email,
+        name: signupName,
+        email: signupEmail,
 
         general_state: {
-
-          age:
-            Number(age),
+          age: Number(age),
 
           cycle_tracking_mode:
             cycleMode,
 
-          last_period_start_date:
-            lastPeriod,
-
           average_cycle_length:
             Number(cycleLength),
 
-          /*
-           * Currently UI does not ask
-           * for period duration.
-           */
-          period_duration:
-            5,
+          period_duration: 5,
 
           phase_symptoms:
             symptoms,
@@ -559,10 +440,6 @@ export default function ProfileSetupScreen() {
           current_fitness_level:
             fitnessLevel,
 
-          /*
-           * Backend currently expects
-           * equipment as a string.
-           */
           equipment:
             equipment.join(', '),
 
@@ -576,135 +453,206 @@ export default function ProfileSetupScreen() {
           nutrition_friction:
             frictionPoint,
         },
+
+        cycle: {
+          last_period_start_date:
+            lastPeriod,
+        },
       };
 
-
-      /* ===================================================
-         STEP 1 — SAVE PROFILE
-      =================================================== */
-
-      if (USE_MOCK_API) {
-
-        /*
-         * MOCK BACKEND
-         */
-
-        await mockCreateUserProfile(
-          profile
-        );
-
-      } else {
-
-        /*
-         * REAL BACKEND
-         */
-
-        await createUserProfile(
-          profile
-        );
-      }
-
-
-      /* ===================================================
-         STEP 2 — COMPLETE AUTH PROFILE
-      =================================================== */
-
-      await completeProfile();
-
-
-      /* ===================================================
-         STEP 3 — GENERATE DAILY PLAN
-      =================================================== */
-
-      try {
-
-        if (USE_MOCK_API) {
-
-          /*
-           * MOCK DAILY AGENT
-           */
-
-          const result =
-            await mockGenerateDailyPlan(
-              firebaseUserId
-            );
-
-          console.log(
-            'Mock daily plan:',
-            result
-          );
-
-        } else {
-
-          /*
-           * REAL DAILY AGENT
-           */
-
-          const result =
-            await generateDailyPlan(
-              firebaseUserId
-            );
-
-          console.log(
-            'Generated daily plan:',
-            result
-          );
-        }
-
-      } catch (error) {
-
-        /*
-         * IMPORTANT:
-         *
-         * Profile has already been saved.
-         *
-         * So even if the AI agent fails,
-         * user can still enter the application.
-         */
-
-        console.warn(
-          'Daily plan generation failed:',
-          error
-        );
-      }
-
-
-      /* ===================================================
-         STEP 4 — GO HOME
-      =================================================== */
-
-      router.replace('/home');
-
-
-    } catch (error) {
-
-      console.error(
-        'Profile setup failed:',
-        error
+      console.log(
+        '========================================'
       );
 
+      console.log(
+        'PROFILE SETUP: creating MongoDB profile'
+      );
+
+      console.log(
+        'Name:',
+        profile.name
+      );
+
+      console.log(
+        'Email:',
+        profile.email
+      );
+
+      console.log(
+        'Profile:',
+        JSON.stringify(
+          profile,
+          null,
+          2
+        )
+      );
+
+      console.log(
+        '========================================'
+      );
+
+      /*
+       * AuthContext handles:
+       *
+       * 1. Sending profile to backend
+       * 2. Creating MongoDB user
+       * 3. Receiving MongoDB _id
+       * 4. Storing that MongoDB _id in AuthContext
+       *
+       * Firebase UID is NOT used as the MongoDB ID.
+       */
+      const mongoUserId =
+        await completeProfile(profile);
+
+      // ============================================================
+      // CREATE INITIAL CYCLE HISTORY
+      // ============================================================
+
+      const periodStartDate =
+        profile.cycle.last_period_start_date;
+
+      if (mongoUserId && periodStartDate) {
+        const today =
+          formatDate(new Date());
+
+        const start =
+          parseDate(periodStartDate);
+
+        const selected =
+          parseDate(today);
+
+        const cycleLength =
+          profile.general_state
+            .average_cycle_length || 28;
+
+        const periodDuration =
+          profile.general_state
+            .period_duration || 5;
+
+        const daysSinceStart =
+          Math.floor(
+            (
+              selected.getTime() -
+              start.getTime()
+            ) /
+            (1000 * 60 * 60 * 24),
+          );
+
+        let cycleDay =
+          daysSinceStart + 1;
+
+        if (cycleDay > cycleLength) {
+          cycleDay =
+            ((cycleDay - 1) %
+              cycleLength) +
+            1;
+        }
+
+        if (cycleDay < 1) {
+          cycleDay = 1;
+        }
+
+        const phase =
+          calculatePhase(
+            cycleDay,
+            periodDuration,
+            cycleLength,
+          );
+
+        const periodEnd =
+          new Date(start);
+
+        periodEnd.setDate(
+          periodEnd.getDate() +
+          periodDuration -
+          1,
+        );
+
+        await createCycle(
+          mongoUserId,
+          {
+            period_start_date:
+              periodStartDate,
+
+            period_end_date:
+              formatDate(periodEnd),
+
+            cycle_length:
+              cycleLength,
+
+            period_duration:
+              periodDuration,
+
+            cycle_day:
+              cycleDay,
+
+            phase,
+          },
+        );
+
+        console.log(
+          "AZUKA: initial cycle history created:",
+          {
+            userId: mongoUserId,
+            periodStartDate,
+            cycleDay,
+            phase,
+          },
+        );
+      }
+      console.log(
+        'PROFILE SETUP: MongoDB profile created'
+      );
+
+      console.log(
+        'MONGO USER ID:',
+        mongoUserId
+      );
+
+      /*
+       * At this point AuthContext owns:
+       *
+       * user.userId   -> MongoDB _id
+       * user.name
+       * user.email
+       *
+       * AzukaContext can use that authenticated
+       * MongoDB user information to load Azuka data.
+       */
+
+      console.log(
+        'PROFILE SETUP: completed successfully'
+      );
+
+      /*
+       * Enter the main application.
+       *
+       * We do not call initializeNewUser().
+       * That function does not exist in AzukaContext.
+       */
+      router.replace('/home');
+    } catch (error) {
+      console.error(
+        'PROFILE SETUP FAILED:',
+        error
+      );
 
       Alert.alert(
         'Unable to complete setup',
         error instanceof Error
           ? error.message
-          : 'Something went wrong while saving your profile.'
+          : 'Something went wrong while creating your profile.'
       );
-
-
     } finally {
-
       setIsProcessing(false);
     }
   };
 
-
-  /* =======================================================
-     UI
-  ======================================================= */
+  // ============================================================
+  // UI
+  // ============================================================
 
   return (
-
     <SafeAreaView
       style={[
         styles.safeArea,
@@ -713,12 +661,8 @@ export default function ProfileSetupScreen() {
             Palette.creamLight,
         },
       ]}
-      edges={[
-        'top',
-        'bottom',
-      ]}
+      edges={['top', 'bottom']}
     >
-
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={
@@ -726,18 +670,14 @@ export default function ProfileSetupScreen() {
         }
         keyboardShouldPersistTaps="handled"
       >
-
         <View style={styles.container}>
-
           <Text
             style={[
               GlobalStyles.bodyText,
               {
                 color:
                   Palette.oceanBlue,
-
                 marginBottom: 6,
-
                 marginTop: 12,
               },
             ]}
@@ -745,35 +685,25 @@ export default function ProfileSetupScreen() {
             Step {step} of 3
           </Text>
 
-
-          {/* =================================================
-              PROCESSING
-          ================================================= */}
-
           {isProcessing ? (
-
             <View
-              style={{
-                paddingVertical: 24,
-              }}
+              style={
+                styles.processingContainer
+              }
             >
-
               <Text
                 style={[
                   GlobalStyles.brandTitle,
                   {
                     fontSize: 24,
-
                     color:
                       Palette.marigold,
-
                     marginBottom: 8,
                   },
                 ]}
               >
-                Building your plan
+                Setting up Azuka
               </Text>
-
 
               <Text
                 style={[
@@ -781,37 +711,29 @@ export default function ProfileSetupScreen() {
                   {
                     color:
                       Palette.textSecondary,
+                    textAlign: 'center',
                   },
                 ]}
               >
-                {USE_MOCK_API
-                  ? 'Mocking your profile and generating your daily plan...'
-                  : 'Saving your biological profile and generating your daily plan...'}
+                Creating your profile and
+                preparing your Azuka data...
               </Text>
-
             </View>
-
           ) : (
-
             <>
-
               {/* =================================================
                   STEP 1
-              ================================================= */}
+                  ================================================= */}
 
               {step === 1 && (
-
                 <>
-
                   <Text
                     style={[
                       GlobalStyles.brandTitle,
                       {
                         marginBottom: 8,
-
                         color:
                           Palette.oceanBlue,
-
                         fontSize: 24,
                       },
                     ]}
@@ -819,13 +741,11 @@ export default function ProfileSetupScreen() {
                     Let’s get to know your biology
                   </Text>
 
-
                   <Text
                     style={[
                       GlobalStyles.bodyText,
                       {
                         marginBottom: 20,
-
                         color:
                           Palette.textSecondary,
                       },
@@ -835,29 +755,20 @@ export default function ProfileSetupScreen() {
                     daily intensity and recovery.
                   </Text>
 
-
-                  {/* AGE */}
-
                   <Text
                     style={styles.sectionLabel}
                   >
                     Age
                   </Text>
 
-
                   <TextInput
                     style={
                       GlobalStyles.inputField
                     }
-
                     placeholder="e.g. 29"
-
                     keyboardType="number-pad"
-
                     value={age}
-
                     onChangeText={(value) => {
-
                       setAge(value);
 
                       if (ageError) {
@@ -866,9 +777,7 @@ export default function ProfileSetupScreen() {
                     }}
                   />
 
-
                   {ageError ? (
-
                     <Text
                       style={
                         styles.errorText
@@ -876,11 +785,7 @@ export default function ProfileSetupScreen() {
                     >
                       {ageError}
                     </Text>
-
                   ) : null}
-
-
-                  {/* CYCLE MODE */}
 
                   <Text
                     style={styles.sectionLabel}
@@ -888,49 +793,35 @@ export default function ProfileSetupScreen() {
                     Cycle tracking mode
                   </Text>
 
-
                   <View
                     style={styles.chipRow}
                   >
-
                     {cycleModes.map(
                       (mode) => (
-
                         <Pressable
                           key={mode}
-
                           style={[
                             styles.chip,
-
                             cycleMode === mode &&
-                              styles.chipActive,
+                            styles.chipActive,
                           ]}
-
                           onPress={() =>
                             setCycleMode(mode)
                           }
                         >
-
                           <Text
                             style={[
                               styles.chipText,
-
                               cycleMode === mode &&
-                                styles.chipTextActive,
+                              styles.chipTextActive,
                             ]}
                           >
                             {mode}
                           </Text>
-
                         </Pressable>
-
                       )
                     )}
-
                   </View>
-
-
-                  {/* LAST PERIOD */}
 
                   <Text
                     style={styles.sectionLabel}
@@ -938,57 +829,40 @@ export default function ProfileSetupScreen() {
                     Last period start date
                   </Text>
 
-
                   <Pressable
                     onPress={() =>
                       setShowDatePicker(true)
                     }
                   >
-
                     <View
                       pointerEvents="none"
                     >
-
                       <TextInput
                         style={
                           GlobalStyles.inputField
                         }
-
                         placeholder="YYYY-MM-DD"
-
                         value={lastPeriod}
-
                         editable={false}
                       />
-
                     </View>
-
                   </Pressable>
 
-
                   {showDatePicker ? (
-
                     <DateTimePicker
                       value={selectedDate}
-
                       mode="date"
-
                       display="default"
-
                       onChange={
                         handleDateChange
                       }
-
                       maximumDate={
                         new Date()
                       }
                     />
-
                   ) : null}
 
-
                   {lastPeriodError ? (
-
                     <Text
                       style={
                         styles.errorText
@@ -996,11 +870,7 @@ export default function ProfileSetupScreen() {
                     >
                       {lastPeriodError}
                     </Text>
-
                   ) : null}
-
-
-                  {/* CYCLE LENGTH */}
 
                   <Text
                     style={styles.sectionLabel}
@@ -1008,20 +878,14 @@ export default function ProfileSetupScreen() {
                     Average cycle length
                   </Text>
 
-
                   <TextInput
                     style={
                       GlobalStyles.inputField
                     }
-
                     placeholder="28"
-
                     keyboardType="number-pad"
-
                     value={cycleLength}
-
                     onChangeText={(value) => {
-
                       setCycleLength(value);
 
                       if (
@@ -1032,9 +896,7 @@ export default function ProfileSetupScreen() {
                     }}
                   />
 
-
                   {cycleLengthError ? (
-
                     <Text
                       style={
                         styles.errorText
@@ -1042,11 +904,7 @@ export default function ProfileSetupScreen() {
                     >
                       {cycleLengthError}
                     </Text>
-
                   ) : null}
-
-
-                  {/* SYMPTOMS */}
 
                   <Text
                     style={styles.sectionLabel}
@@ -1054,31 +912,24 @@ export default function ProfileSetupScreen() {
                     Primary phase symptoms
                   </Text>
 
-
                   <View
                     style={styles.chipRow}
                   >
-
                     {symptomOptions.map(
                       (option) => {
-
                         const active =
                           symptoms.includes(
                             option
                           );
 
                         return (
-
                           <Pressable
                             key={option}
-
                             style={[
                               styles.chip,
-
                               active &&
-                                styles.chipActive,
+                              styles.chipActive,
                             ]}
-
                             onPress={() =>
                               toggleSelection(
                                 option,
@@ -1087,43 +938,34 @@ export default function ProfileSetupScreen() {
                               )
                             }
                           >
-
                             <Text
                               style={[
                                 styles.chipText,
-
                                 active &&
-                                  styles.chipTextActive,
+                                styles.chipTextActive,
                               ]}
                             >
                               {option}
                             </Text>
-
                           </Pressable>
                         );
                       }
                     )}
-
                   </View>
-
 
                   <Pressable
                     style={[
                       GlobalStyles.btnPrimary,
-
                       {
                         backgroundColor:
                           Palette.oceanBlue,
-
                         marginTop: 12,
                       },
                     ]}
-
                     onPress={
                       validateStepOne
                     }
                   >
-
                     <Text
                       style={
                         GlobalStyles.btnPrimaryText
@@ -1131,30 +973,23 @@ export default function ProfileSetupScreen() {
                     >
                       Continue
                     </Text>
-
                   </Pressable>
-
                 </>
               )}
 
-
               {/* =================================================
                   STEP 2
-              ================================================= */}
+                  ================================================= */}
 
               {step === 2 && (
-
                 <>
-
                   <Text
                     style={[
                       GlobalStyles.brandTitle,
                       {
                         marginBottom: 8,
-
                         color:
                           Palette.orange,
-
                         fontSize: 24,
                       },
                     ]}
@@ -1162,13 +997,11 @@ export default function ProfileSetupScreen() {
                     Your fitness baseline
                   </Text>
 
-
                   <Text
                     style={[
                       GlobalStyles.bodyText,
                       {
                         marginBottom: 20,
-
                         color:
                           Palette.textSecondary,
                       },
@@ -1179,49 +1012,38 @@ export default function ProfileSetupScreen() {
                     never breaks.
                   </Text>
 
-
-                  {/* FOCUS */}
-
                   <Text
                     style={styles.sectionLabel}
                   >
                     Primary focus
                   </Text>
 
-
                   {focusOptions.map(
                     (option) => (
-
                       <Pressable
                         key={option.title}
-
                         style={[
                           styles.optionCard,
-
                           focus ===
-                            option.title &&
-                            styles.optionCardActive,
+                          option.title &&
+                          styles.optionCardActive,
                         ]}
-
                         onPress={() =>
                           setFocus(
                             option.title
                           )
                         }
                       >
-
                         <Text
                           style={[
                             styles.optionTitle,
-
                             focus ===
-                              option.title &&
-                              styles.optionTitleActive,
+                            option.title &&
+                            styles.optionTitleActive,
                           ]}
                         >
                           {option.title}
                         </Text>
-
 
                         <Text
                           style={
@@ -1230,14 +1052,9 @@ export default function ProfileSetupScreen() {
                         >
                           {option.text}
                         </Text>
-
                       </Pressable>
-
                     )
                   )}
-
-
-                  {/* FITNESS LEVEL */}
 
                   <Text
                     style={styles.sectionLabel}
@@ -1245,53 +1062,39 @@ export default function ProfileSetupScreen() {
                     Current fitness level
                   </Text>
 
-
                   <View
                     style={styles.chipRow}
                   >
-
                     {fitnessLevels.map(
                       (level) => (
-
                         <Pressable
                           key={level}
-
                           style={[
                             styles.chip,
-
                             fitnessLevel ===
-                              level &&
-                              styles.chipActive2,
+                            level &&
+                            styles.chipActive2,
                           ]}
-
                           onPress={() =>
                             setFitnessLevel(
                               level
                             )
                           }
                         >
-
                           <Text
                             style={[
                               styles.chipText,
-
                               fitnessLevel ===
-                                level &&
-                                styles.chipTextActive,
+                              level &&
+                              styles.chipTextActive,
                             ]}
                           >
                             {level}
                           </Text>
-
                         </Pressable>
-
                       )
                     )}
-
                   </View>
-
-
-                  {/* EQUIPMENT */}
 
                   <Text
                     style={styles.sectionLabel}
@@ -1299,31 +1102,24 @@ export default function ProfileSetupScreen() {
                     Equipment
                   </Text>
 
-
                   <View
                     style={styles.chipRow}
                   >
-
                     {equipmentOptions.map(
                       (item) => {
-
                         const active =
                           equipment.includes(
                             item
                           );
 
                         return (
-
                           <Pressable
                             key={item}
-
                             style={[
                               styles.chip,
-
                               active &&
-                                styles.chipActive2,
+                              styles.chipActive2,
                             ]}
-
                             onPress={() =>
                               toggleSelection(
                                 item,
@@ -1332,98 +1128,74 @@ export default function ProfileSetupScreen() {
                               )
                             }
                           >
-
                             <Text
                               style={[
                                 styles.chipText,
-
                                 active &&
-                                  styles.chipTextActive,
+                                styles.chipTextActive,
                               ]}
                             >
                               {item}
                             </Text>
-
                           </Pressable>
                         );
                       }
                     )}
-
                   </View>
-
-
-                  {/* STRESS */}
 
                   <Text
                     style={styles.sectionLabel}
                   >
-                    Average daily workload /
-                    stress
+                    Average daily workload / stress
                   </Text>
-
 
                   <View
                     style={styles.sliderRow}
                   >
-
                     {[1, 2, 3, 4, 5].map(
                       (value) => (
-
                         <Pressable
                           key={value}
-
                           style={[
                             styles.sliderDot,
-
                             stressLevel ===
-                              value &&
-                              styles.sliderDotActive,
+                            value &&
+                            styles.sliderDotActive,
                           ]}
-
                           onPress={() =>
                             setStressLevel(
                               value
                             )
                           }
                         >
-
                           <Text
                             style={[
                               styles.sliderDotText,
-
                               stressLevel ===
-                                value &&
-                                styles.sliderDotTextActive,
+                              value &&
+                              styles.sliderDotTextActive,
                             ]}
                           >
                             {value}
                           </Text>
-
                         </Pressable>
-
                       )
                     )}
-
                   </View>
-
 
                   <Pressable
                     style={[
                       GlobalStyles.btnPrimary,
-
                       {
                         backgroundColor:
                           Palette.orange,
-
                         marginTop: 8,
                       },
                     ]}
-
                     onPress={() =>
                       setStep(3)
                     }
                   >
-
                     <Text
                       style={
                         GlobalStyles.btnPrimaryText
@@ -1431,24 +1203,19 @@ export default function ProfileSetupScreen() {
                     >
                       Continue
                     </Text>
-
                   </Pressable>
-
 
                   <Pressable
                     style={[
                       GlobalStyles.btnOutline,
-
                       {
                         marginTop: 8,
                       },
                     ]}
-
                     onPress={() =>
                       setStep(1)
                     }
                   >
-
                     <Text
                       style={
                         GlobalStyles.btnOutlineText
@@ -1456,30 +1223,23 @@ export default function ProfileSetupScreen() {
                     >
                       Back
                     </Text>
-
                   </Pressable>
-
                 </>
               )}
 
-
               {/* =================================================
                   STEP 3
-              ================================================= */}
+                  ================================================= */}
 
               {step === 3 && (
-
                 <>
-
                   <Text
                     style={[
                       GlobalStyles.brandTitle,
                       {
                         marginBottom: 8,
-
                         color:
                           Palette.forestGreen,
-
                         fontSize: 24,
                       },
                     ]}
@@ -1487,13 +1247,11 @@ export default function ProfileSetupScreen() {
                     Nutrition & health sync
                   </Text>
 
-
                   <Text
                     style={[
                       GlobalStyles.bodyText,
                       {
                         marginBottom: 20,
-
                         color:
                           Palette.textSecondary,
                       },
@@ -1503,58 +1261,41 @@ export default function ProfileSetupScreen() {
                     and recovery.
                   </Text>
 
-
-                  {/* DIET */}
-
                   <Text
                     style={styles.sectionLabel}
                   >
                     Dietary pattern
                   </Text>
 
-
                   <View
                     style={styles.chipRow}
                   >
-
                     {dietOptions.map(
                       (item) => (
-
                         <Pressable
                           key={item}
-
                           style={[
                             styles.chip,
-
                             diet === item &&
-                              styles.chipActive3,
+                            styles.chipActive3,
                           ]}
-
                           onPress={() =>
                             setDiet(item)
                           }
                         >
-
                           <Text
                             style={[
                               styles.chipText,
-
                               diet === item &&
-                                styles.chipTextActive,
+                              styles.chipTextActive,
                             ]}
                           >
                             {item}
                           </Text>
-
                         </Pressable>
-
                       )
                     )}
-
                   </View>
-
-
-                  {/* ALLERGIES */}
 
                   <Text
                     style={styles.sectionLabel}
@@ -1562,31 +1303,24 @@ export default function ProfileSetupScreen() {
                     Allergies & sensitivities
                   </Text>
 
-
                   <View
                     style={styles.chipRow}
                   >
-
                     {allergyOptions.map(
                       (item) => {
-
                         const active =
                           allergies.includes(
                             item
                           );
 
                         return (
-
                           <Pressable
                             key={item}
-
                             style={[
                               styles.chip,
-
                               active &&
-                                styles.chipActive3,
+                              styles.chipActive3,
                             ]}
-
                             onPress={() =>
                               toggleSelection(
                                 item,
@@ -1595,60 +1329,45 @@ export default function ProfileSetupScreen() {
                               )
                             }
                           >
-
                             <Text
                               style={[
                                 styles.chipText,
-
                                 active &&
-                                  styles.chipTextActive,
+                                styles.chipTextActive,
                               ]}
                             >
                               {item}
                             </Text>
-
                           </Pressable>
                         );
                       }
                     )}
-
                   </View>
-
-
-                  {/* NUTRITION FRICTION */}
 
                   <Text
                     style={styles.sectionLabel}
                   >
-                    Primary nutrition friction
-                    point
+                    Primary nutrition friction point
                   </Text>
-
 
                   <View
                     style={styles.chipRow}
                   >
-
                     {frictionOptions.map(
                       (item) => {
-
                         const active =
                           frictionPoint.includes(
                             item
                           );
 
                         return (
-
                           <Pressable
                             key={item}
-
                             style={[
                               styles.chip,
-
                               active &&
-                                styles.chipActive3,
+                              styles.chipActive3,
                             ]}
-
                             onPress={() =>
                               toggleSelection(
                                 item,
@@ -1657,54 +1376,39 @@ export default function ProfileSetupScreen() {
                               )
                             }
                           >
-
                             <Text
                               style={[
                                 styles.chipText,
-
                                 active &&
-                                  styles.chipTextActive,
+                                styles.chipTextActive,
                               ]}
                             >
                               {item}
                             </Text>
-
                           </Pressable>
                         );
                       }
                     )}
-
                   </View>
 
-
-                  {/* COMPLETE */}
-
                   <Pressable
-                    disabled={
-                      isProcessing
-                    }
-
+                    disabled={isProcessing}
                     style={[
                       GlobalStyles.btnPrimary,
-
                       {
                         backgroundColor:
                           Palette.forestGreen,
-
                         marginTop: 8,
-
                         opacity:
                           isProcessing
                             ? 0.7
                             : 1,
                       },
                     ]}
-
                     onPress={
                       handleComplete
                     }
                   >
-
                     <Text
                       style={
                         GlobalStyles.btnPrimaryText
@@ -1714,30 +1418,20 @@ export default function ProfileSetupScreen() {
                         ? 'Setting up...'
                         : 'Complete setup'}
                     </Text>
-
                   </Pressable>
 
-
-                  {/* BACK */}
-
                   <Pressable
-                    disabled={
-                      isProcessing
-                    }
-
+                    disabled={isProcessing}
                     style={[
                       GlobalStyles.btnOutline,
-
                       {
                         marginTop: 8,
                       },
                     ]}
-
                     onPress={() =>
                       setStep(2)
                     }
                   >
-
                     <Text
                       style={
                         GlobalStyles.btnOutlineText
@@ -1745,30 +1439,18 @@ export default function ProfileSetupScreen() {
                     >
                       Back
                     </Text>
-
                   </Pressable>
-
                 </>
               )}
-
             </>
           )}
-
         </View>
-
       </ScrollView>
-
     </SafeAreaView>
   );
 }
 
-
-/* =========================================================
-   STYLES
-========================================================= */
-
 const styles = StyleSheet.create({
-
   safeArea: {
     flex: 1,
     backgroundColor:
@@ -1777,11 +1459,8 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     flexGrow: 1,
-
     alignItems: 'center',
-
     paddingHorizontal: 16,
-
     paddingVertical: 16,
   },
 
@@ -1790,52 +1469,42 @@ const styles = StyleSheet.create({
     maxWidth: 700,
   },
 
+  processingContainer: {
+    paddingVertical: 48,
+    alignItems: 'center',
+  },
+
   sectionLabel: {
     fontSize: 14,
-
     fontWeight: '700',
-
     color:
       Palette.textPrimary,
-
     marginBottom: 10,
-
     marginTop: 6,
   },
 
   errorText: {
     color:
       Palette.crimson,
-
     marginTop: -8,
-
     marginBottom: 8,
   },
 
   chipRow: {
     flexDirection: 'row',
-
     flexWrap: 'wrap',
-
     gap: 8,
-
     marginBottom: 12,
   },
 
   chip: {
     borderWidth: 1,
-
     borderColor:
       '#E0D6BA',
-
     borderRadius: 999,
-
     paddingHorizontal: 12,
-
     paddingVertical: 8,
-
     marginBottom: 8,
-
     backgroundColor:
       Palette.surfaceWhite,
   },
@@ -1843,7 +1512,6 @@ const styles = StyleSheet.create({
   chipActive: {
     backgroundColor:
       Palette.oceanBlue,
-
     borderColor:
       Palette.oceanBlue,
   },
@@ -1851,7 +1519,6 @@ const styles = StyleSheet.create({
   chipActive2: {
     backgroundColor:
       Palette.orange,
-
     borderColor:
       Palette.surfaceOrangeMuted,
   },
@@ -1859,7 +1526,6 @@ const styles = StyleSheet.create({
   chipActive3: {
     backgroundColor:
       Palette.forestGreen,
-
     borderColor:
       Palette.surfaceGreenMuted,
   },
@@ -1867,7 +1533,6 @@ const styles = StyleSheet.create({
   chipText: {
     color:
       Palette.textPrimary,
-
     fontSize: 13,
   },
 
@@ -1878,16 +1543,11 @@ const styles = StyleSheet.create({
 
   optionCard: {
     borderWidth: 1,
-
     borderColor:
       '#E0D6BA',
-
     borderRadius: 12,
-
     padding: 12,
-
     marginBottom: 10,
-
     backgroundColor:
       Palette.surfaceWhite,
   },
@@ -1895,19 +1555,15 @@ const styles = StyleSheet.create({
   optionCardActive: {
     borderColor:
       Palette.marigold,
-
     backgroundColor:
       Palette.surfaceOrangeMuted,
   },
 
   optionTitle: {
     fontSize: 15,
-
     fontWeight: '700',
-
     color:
       Palette.textPrimary,
-
     marginBottom: 4,
   },
 
@@ -1918,53 +1574,40 @@ const styles = StyleSheet.create({
 
   optionText: {
     fontSize: 13,
-
     color:
       Palette.textSecondary,
-
     lineHeight: 18,
   },
 
   sliderRow: {
     flexDirection: 'row',
-
     justifyContent:
       'space-between',
-
     marginBottom: 12,
   },
 
   sliderDot: {
     width: 40,
-
     height: 40,
-
     borderRadius: 20,
-
     borderWidth: 1,
-
     borderColor:
       '#E0D6BA',
-
     alignItems: 'center',
-
     justifyContent:
       'center',
-
     marginHorizontal: 12,
   },
 
   sliderDotActive: {
     backgroundColor:
       Palette.orange,
-
     borderColor:
       Palette.surfaceOrangeMuted,
   },
 
   sliderDotText: {
     fontWeight: '700',
-
     color:
       Palette.textPrimary,
   },
