@@ -5,3 +5,4 @@ motor
 pydantic
 python-dotenv
 google-genai
+email-validator
